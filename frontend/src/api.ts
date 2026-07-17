@@ -26,10 +26,21 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action_id: actionId, approved_by: "console-operator" })
     }).then(json<Incident>),
+  reject: (incidentId: string, actionId: string, reason: string) =>
+    fetch(`/api/incidents/${incidentId}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action_id: actionId, rejected_by: "console-operator", reason })
+    }).then(json<Incident>),
   cancel: (incidentId: string) =>
     fetch(`/api/incidents/${incidentId}/cancel`, { method: "POST" }).then(json<Incident>),
   retry: (incidentId: string) =>
     fetch(`/api/incidents/${incidentId}/retry`, { method: "POST" }).then(json<Incident>),
+  postmortem: async (incidentId: string) => {
+    const response = await fetch(`/api/incidents/${incidentId}/postmortem`);
+    if (!response.ok) throw new Error("Postmortem is not available");
+    return response.text();
+  },
   evaluate: () => fetch("/api/evaluations/run", { method: "POST" }).then(json<Evaluation>),
   latestEvaluation: () => fetch("/api/evaluations/latest").then(json<Evaluation | null>)
 };

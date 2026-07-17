@@ -78,6 +78,30 @@ def test_sse_replays_after_last_event_id(tmp_path) -> None:
     )
     replay_ids = [int(line.removeprefix("id: ")) for line in replay.text.splitlines() if line.startswith("id: ")]
     assert replay_ids == ids[1:]
+    query_replay = client.get(
+        f"/api/incidents/{incident['id']}/events?follow=false&after={ids[0]}"
+    )
+    query_ids = [int(line.removeprefix("id: ")) for line in query_replay.text.splitlines() if line.startswith("id: ")]
+    assert query_ids == ids[1:]
+
+
+def test_reject_endpoint_records_reason_and_cancels(tmp_path) -> None:
+    client, store = make_runtime(tmp_path)
+    incident = client.post("/api/incidents", json={"scenario_id": "gateway-tls-expiry"}).json()
+    WorkflowWorker(store, "reject-api-worker").drain()
+    waiting = client.get(f"/api/incidents/{incident['id']}").json()
+    rejected = client.post(
+        f"/api/incidents/{incident['id']}/reject",
+        json={
+            "action_id": waiting["actions"][0]["id"],
+            "rejected_by": "api-operator",
+            "reason": "Change window is closed",
+        },
+    )
+    assert rejected.status_code == 200
+    assert rejected.json()["status"] == "cancelled"
+    assert rejected.json()["approval_rejection_reason"] == "Change window is closed"
+    assert not rejected.json()["actions"][0]["executed"]
 
 
 def test_cancel_and_retry_endpoints(tmp_path) -> None:

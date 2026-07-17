@@ -1,0 +1,16 @@
+{
+  "name": "multi-agent-incident-lab-e2e",
+  "private": true,
+  "version": "1.2.1",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  }
+}

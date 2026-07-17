@@ -7,7 +7,7 @@ import time
 from uuid import uuid4
 
 from . import __version__
-from .workflow import WorkflowWorker
+from .workflow import WorkflowStepExecutor, WorkflowWorker
 from .workflow_store import WorkflowStore
 
 
@@ -21,9 +21,14 @@ def main() -> None:  # pragma: no cover - exercised as a real subprocess integra
     worker_id = os.getenv("INCIDENT_LAB_WORKER_ID", f"{socket.gethostname()}-{uuid4().hex[:6]}")
     lease_seconds = float(os.getenv("INCIDENT_LAB_LEASE_SECONDS", "30"))
     timeout_seconds = float(os.getenv("INCIDENT_LAB_STEP_TIMEOUT_SECONDS", "20"))
+    executor = WorkflowStepExecutor(
+        store,
+        step_delay_seconds=float(os.getenv("INCIDENT_LAB_WORKER_STEP_DELAY_MS", "0")) / 1000,
+    )
     worker = WorkflowWorker(
         store,
         worker_id,
+        executor=executor,
         lease_seconds=lease_seconds,
         step_timeout_seconds=timeout_seconds,
     )

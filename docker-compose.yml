@@ -34,6 +34,8 @@ services:
     volumes:
       - incident-lab-data:/app/data
     restart: unless-stopped
+    healthcheck:
+      disable: true
 
 volumes:
   incident-lab-data:

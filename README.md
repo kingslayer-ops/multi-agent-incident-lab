@@ -2,7 +2,7 @@
 
 **Evidence-driven multi-agent incident response with a durable, crash-recoverable workflow.**
 
-[中文文档](README.zh-CN.md) · [Architecture](docs/architecture.md) · [Workflow reliability](docs/workflow-reliability.md) · [Security](SECURITY.md)
+[中文文档](README.zh-CN.md) · [Architecture](docs/architecture.md) · [Workflow reliability](docs/workflow-reliability.md) · [E2E testing](docs/e2e-testing.md) · [Security](SECURITY.md)
 
 Multi-Agent Incident Lab is a full-stack incident investigation workbench. Eight specialized roles collect telemetry, correlate changes, build evidence-linked hypotheses, review risk, wait for human approval, execute a sandbox remediation, and verify recovery. The API and worker are separate processes, and every workflow step is checkpointed in SQLite WAL before execution continues.
 
@@ -21,6 +21,7 @@ Multi-Agent Incident Lab is a full-stack incident investigation workbench. Eight
 | Model fallback | OpenAI-compatible structured output degrades to deterministic offline diagnosis |
 | Evaluation | 12 fault families measure diagnosis accuracy, evidence coverage, safety, and latency |
 | Delivery | React/TypeScript, FastAPI, two-service Docker Compose, coverage gate, and GitHub Actions |
+| Browser proof | Six Playwright flows cover refresh, approval/rejection, Worker restart, and SSE recovery |
 
 ## Architecture
 
@@ -104,13 +105,14 @@ pytest --cov=incident_lab --cov-report=term-missing --cov-fail-under=90
 cd frontend && npm run build
 docker compose config
 docker compose build
+make e2e
 ```
 
-Tests include atomic multi-worker claiming, retry and manual recovery, concurrent approval, transaction rollback, stale-worker fencing, ordered SSE replay, action idempotency, and a real subprocess crash after lease acquisition.
+Tests include atomic multi-worker claiming, retry and manual recovery, concurrent approval, transaction rollback, stale-worker fencing, ordered SSE replay, action idempotency, and a real subprocess crash after lease acquisition. The isolated Playwright stack adds browser-level proof of the full incident loop, refresh recovery, approval pause/rejection, Worker restart, and SSE disconnect replay. Failure runs retain screenshots, video, trace, browser/network logs, and Compose logs. See [E2E testing](docs/e2e-testing.md).
 
 ## Scope
 
-This is a portfolio-grade incident-response simulation, not a production distributed control plane. SQLite is intentionally retained for v1.2.0; real Prometheus/Loki adapters, Redis/PostgreSQL coordination, and remote command execution are outside this release.
+This is a portfolio-grade incident-response simulation, not a production distributed control plane. SQLite is intentionally retained for v1.2.x; real Prometheus/Loki adapters, Redis/PostgreSQL coordination, and remote command execution are outside this release.
 
 ## License
 

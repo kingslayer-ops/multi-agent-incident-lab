@@ -14,6 +14,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: pip install -e ".[dev]"
+      - run: ruff check src tests
       - run: pytest --cov=incident_lab --cov-report=term-missing --cov-fail-under=90
       - name: Reject legacy branding
         run: |
@@ -48,3 +49,47 @@ jobs:
           context: .
           push: false
           tags: multi-agent-incident-lab:ci
+
+  e2e:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci
+        working-directory: e2e
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - name: Build and start isolated E2E stack
+        run: docker compose -f docker-compose.e2e.yml up -d --build --wait
+      - name: Run Chromium smoke path
+        if: github.event_name == 'pull_request'
+        run: npm run test:smoke
+        working-directory: e2e
+      - name: Run Chromium full resilience suite
+        if: github.event_name != 'pull_request'
+        run: npm test
+        working-directory: e2e
+      - name: Collect service logs
+        if: failure()
+        run: |
+          mkdir -p e2e/test-results
+          docker compose -f docker-compose.e2e.yml logs --no-color > e2e/test-results/compose.log
+      - name: Upload Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-evidence-${{ github.run_attempt }}
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop isolated E2E stack
+        if: always()
+        run: docker compose -f docker-compose.e2e.yml down -v --remove-orphans

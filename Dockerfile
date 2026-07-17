@@ -5,6 +5,15 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
+FROM node:20-alpine AS e2e-frontend
+WORKDIR /app
+COPY frontend/e2e-server.mjs ./server.mjs
+COPY --from=frontend-build /build/frontend/dist ./dist
+HEALTHCHECK --interval=5s --timeout=3s --retries=10 \
+  CMD wget -q -O - http://127.0.0.1:4173/health >/dev/null || exit 1
+EXPOSE 4173
+CMD ["node", "server.mjs"]
+
 FROM python:3.11-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1

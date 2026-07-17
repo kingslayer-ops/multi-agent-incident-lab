@@ -19,11 +19,15 @@ def test_all_runtime_versions_match_project_metadata(tmp_path) -> None:
     frontend_version = json.loads(
         (ROOT / "frontend" / "package.json").read_text(encoding="utf-8")
     )["version"]
+    e2e_version = json.loads(
+        (ROOT / "e2e" / "package.json").read_text(encoding="utf-8")
+    )["version"]
 
-    assert project_version == "1.2.0"
+    assert project_version == "1.2.1"
     assert version("multi-agent-incident-lab") == project_version
     assert __version__ == project_version
     database = tmp_path / "versions.db"
     store = SQLiteStore(database)
     assert create_app(store=store, workflow_store=WorkflowStore(database, project_version)).version == project_version
     assert frontend_version == project_version
+    assert e2e_version == project_version

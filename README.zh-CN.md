@@ -2,7 +2,7 @@
 
 **以证据为核心、支持宕机恢复的多 Agent 故障响应实验室。**
 
-[English](README.md) · [架构说明](docs/architecture.md) · [工作流可靠性](docs/workflow-reliability.md) · [安全策略](SECURITY.md)
+[English](README.md) · [架构说明](docs/architecture.md) · [工作流可靠性](docs/workflow-reliability.md) · [端到端测试](docs/e2e-testing.md) · [安全策略](SECURITY.md)
 
 项目由 8 个职责明确的角色协作完成故障分级、指标分析、日志检索、变更关联、根因判断、安全审查、沙箱修复和恢复验证。v1.2.0 将 API 与 Worker 分离，并把调查过程拆成 10 个稳定、带版本的持久化步骤。
 
@@ -16,6 +16,14 @@
 - 支持自动重试、人工重试、取消请求和安全边界停止。
 
 项目采用“至少一次调度 + 幂等步骤提交”，不宣称 exactly-once。详细保证、失败窗口和边界见[工作流可靠性说明](docs/workflow-reliability.md)。
+
+## v1.2.1 浏览器级验证
+
+- 6 条 Playwright Chromium 流程覆盖完整闭环、页面刷新、审批暂停、审批拒绝、Worker 重启和 SSE 断线恢复。
+- 页面使用稳定 `data-testid`，测试只等待业务状态和持久事件，不依赖文案、CSS 或固定休眠。
+- SSE 采用事件游标、去重和指数退避重连；Worker 暂停时页面显示等待恢复。
+- E2E 使用独立 API、Worker、前端和 SQLite 数据卷，不污染开发数据。
+- 失败时保存截图、视频、Playwright Trace、浏览器/网络日志和 Compose 日志。
 
 ## 一键运行
 
@@ -44,13 +52,14 @@ python -m incident_lab.worker
 pytest --cov=incident_lab --cov-report=term-missing --cov-fail-under=90
 cd frontend && npm run build
 docker compose config
+make e2e
 ```
 
 测试覆盖双 Worker 竞争、租约过期恢复、旧 Worker 提交拒绝、重试与取消、并发审批、事务回滚、SSE 回放、修复幂等，以及真实 Worker 子进程领取任务后崩溃并恢复。
 
 ## 项目边界
 
-这是一个完成度较高、可复现的 Agent 故障响应模拟项目，不是真实生产级分布式控制平台。v1.2.0 仍使用 SQLite；真实 Prometheus/Loki、Redis/PostgreSQL 和远程命令执行均不在本版本范围内。
+这是一个完成度较高、可复现的 Agent 故障响应模拟项目，不是真实生产级分布式控制平台。v1.2.x 仍使用 SQLite；真实 Prometheus/Loki、Redis/PostgreSQL 和远程命令执行均不在本版本范围内。
 
 ## 许可证
 

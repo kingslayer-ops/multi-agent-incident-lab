@@ -45,6 +45,8 @@ h1 em { color: var(--muted); font-style: normal; font-weight: 400; }
 .health-ring span { color: var(--cyan); font-size: 26px; font-family: "IBM Plex Mono"; }
 .health-ring small { color: var(--muted); font-size: 10px; margin-top: 5px; }
 .error-banner { padding: 12px 16px; border: 1px solid rgba(255,107,107,.4); background: rgba(255,107,107,.08); color: #ff9a9a; margin-bottom: 18px; }
+.connection-state { width: fit-content; margin: -25px 0 22px auto; color: var(--muted); font: 9px "IBM Plex Mono"; text-transform: uppercase; letter-spacing: .08em; }
+.connection-live { color: var(--cyan); }.connection-reconnecting, .connection-waiting-worker { color: var(--amber); }
 
 .metrics { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); margin-bottom: 42px; }
 .metrics article { padding: 19px 22px; border-right: 1px solid var(--line); }
@@ -85,6 +87,7 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
 .incident-summary { display: flex; justify-content: space-between; align-items: end; padding: 23px; border-bottom: 1px solid var(--line); background: linear-gradient(110deg, rgba(113,229,209,.045), transparent 55%); }
 .incident-summary h2 { text-transform: capitalize; }.confidence { text-align: right; }.confidence strong, .confidence span { display: block; }.confidence strong { color: var(--cyan); font: 26px "IBM Plex Mono"; }.confidence span { color: var(--muted); font-size: 9px; }
 .workflow-controls { display: flex; justify-content: flex-end; padding: 10px 23px; border-bottom: 1px solid var(--line); }
+.active-status { display: flex; align-items: center; gap: 10px; padding: 10px 23px; border-bottom: 1px solid var(--line); }.active-status > span:last-child { color: var(--muted); font: 9px "IBM Plex Mono"; }
 .timeline { padding: 7px 22px; }
 .trace-step { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; padding: 15px 0; border-bottom: 1px solid rgba(37,48,61,.7); }
 .step-index { font: 10px "IBM Plex Mono"; color: #526170; padding-top: 3px; }
@@ -94,6 +97,9 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
 .approval.resolved { border-color: rgba(113,229,209,.3); background: rgba(113,229,209,.04); }.approval.resolved .eyebrow { color: var(--cyan); }
 .approval .eyebrow { color: var(--amber); }.approval h3 { margin: 0 0 6px; font-size: 14px; }.approval p { color: var(--muted); margin: 0 0 10px; font-size: 11px; max-width: 650px; }.approval code { font-size: 9px; color: #b7c0ca; }
 .approval button, .secondary { background: var(--cyan); color: #07100f; border: 0; padding: 11px 14px; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; }.approval button:disabled, .secondary:disabled { opacity: .5; cursor: wait; }
+.approval-actions { min-width: 250px; display: grid; gap: 8px; }.approval-actions input { min-width: 250px; padding: 10px; border: 1px solid var(--line); background: #0b1016; color: #dce5ee; font-size: 11px; }.approval-actions .danger { background: transparent; color: #ff929a; border: 1px solid rgba(255,107,107,.4); }
+.rejection-result { margin: 16px 22px; padding: 14px; border: 1px solid rgba(255,107,107,.35); color: #ff9a9a; font-size: 11px; }
+.postmortem-button { margin: 0 22px 18px; }.postmortem-report { margin: 0 22px 22px; padding: 18px; max-height: 420px; overflow: auto; white-space: pre-wrap; border: 1px solid var(--line); background: #0b1016; color: #c6d0dc; font: 10px/1.65 "IBM Plex Mono"; }
 
 .evaluation { padding-bottom: 20px; margin-bottom: 28px; }.evaluation .section-heading { padding: 19px 22px; margin: 0; border-bottom: 1px solid var(--line); }.secondary { background: transparent; color: var(--cyan); border: 1px solid rgba(113,229,209,.4); }
 .eval-layout { display: grid; grid-template-columns: 1.2fr repeat(3, 1fr); }.score, .eval-stat { padding: 25px 22px; border-right: 1px solid var(--line); }.eval-stat:last-child { border: 0; }.score strong, .score span, .eval-stat strong, .eval-stat span { display: block; }.score strong { color: var(--cyan); font: 36px "IBM Plex Mono"; }.score span, .eval-stat span { color: var(--muted); font-size: 10px; margin-top: 6px; }.eval-stat strong { font: 22px "IBM Plex Mono"; margin-top: 13px; }
