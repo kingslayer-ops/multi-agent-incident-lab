@@ -172,6 +172,44 @@ def test_approval_is_final_and_concurrent_requests_are_idempotent(tmp_path) -> N
     assert resolved.actions[0].executed
 
 
+def test_rejection_is_final_cancelled_and_never_executes_action(tmp_path) -> None:
+    store = make_store(tmp_path)
+    incident = create_incident(store)
+    worker = WorkflowWorker(store, "rejection-worker")
+    assert worker.drain() == 7
+    waiting = SQLiteStore(store.path).get_incident(incident.id)
+    action_id = waiting.actions[0].id
+    rejected = store.reject(incident.id, action_id, "operator", "Rollback risk is too high")
+    assert rejected.status == IncidentStatus.CANCELLED
+    assert rejected.approval_rejection_reason == "Rollback risk is too high"
+    assert not rejected.actions[0].approved
+    assert not rejected.actions[0].executed
+    assert worker.drain() == 0
+    events = store.list_events(incident.workflow_run_id)
+    assert events[-1].event_type == "approval.rejected"
+    assert events[-1].payload["reason"] == "Rollback risk is too high"
+    assert store.reject(incident.id, action_id, "operator", "Rollback risk is too high").status == IncidentStatus.CANCELLED
+    with pytest.raises(InvalidTransitionError):
+        store.approve(incident.id, action_id, "late-approver")
+
+
+def test_schema_migrates_existing_approval_table(tmp_path) -> None:
+    store = make_store(tmp_path)
+    with store.connect() as connection:
+        connection.execute("DROP TABLE approval_records")
+        connection.execute("""CREATE TABLE approval_records (
+            workflow_run_id TEXT PRIMARY KEY REFERENCES workflow_runs(id),
+            action_id TEXT NOT NULL,
+            decision TEXT NOT NULL,
+            decided_by TEXT NOT NULL,
+            decided_at TEXT NOT NULL
+        )""")
+    WorkflowStore(store.path, __version__)
+    with store.connect() as connection:
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(approval_records)")}
+    assert "reason" in columns
+
+
 def test_cancel_running_workflow_finishes_at_safe_boundary(tmp_path) -> None:
     store = make_store(tmp_path)
     incident = create_incident(store)

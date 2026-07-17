@@ -12,7 +12,7 @@ from .models import Incident, IncidentStatus, StepStatus, WorkflowEvent, Workflo
 
 WORKFLOW_NAME = "incident_investigation"
 WORKFLOW_VERSION = "1.2"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 STEP_DEFINITIONS = (
     ("triage", "Triage Agent"),
@@ -153,7 +153,8 @@ class WorkflowStore:
                     action_id TEXT NOT NULL,
                     decision TEXT NOT NULL,
                     decided_by TEXT NOT NULL,
-                    decided_at TEXT NOT NULL
+                    decided_at TEXT NOT NULL,
+                    reason TEXT
                 );
                 CREATE TABLE IF NOT EXISTS action_executions (
                     idempotency_key TEXT PRIMARY KEY,
@@ -170,6 +171,11 @@ class WorkflowStore:
                     ON workflow_events(workflow_run_id, id);
                 """
             )
+            approval_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(approval_records)")
+            }
+            if "reason" not in approval_columns:
+                connection.execute("ALTER TABLE approval_records ADD COLUMN reason TEXT")
 
     def create_run(self, incident: Incident) -> Incident:
         now = utc_now()
@@ -459,7 +465,9 @@ class WorkflowStore:
                     (run_row["id"],),
                 ).fetchone()
                 connection.execute(
-                    "INSERT INTO approval_records VALUES (?, ?, 'approved', ?, ?)",
+                    """INSERT INTO approval_records
+                    (workflow_run_id, action_id, decision, decided_by, decided_at, reason)
+                    VALUES (?, ?, 'approved', ?, ?, NULL)""",
                     (run_row["id"], action_id, approved_by, now.isoformat()),
                 )
                 connection.execute(
@@ -479,6 +487,67 @@ class WorkflowStore:
                 )
                 self._event(connection, run_row["id"], incident_id, "run.resumed", "wait_approval",
                             {"approved_by": approved_by, "action_id": action_id})
+                connection.commit()
+                return incident.model_copy(deep=True)
+            except Exception:
+                connection.rollback()
+                raise
+
+    def reject(self, incident_id: str, action_id: str, rejected_by: str, reason: str) -> Incident:
+        now = utc_now()
+        with self.connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                run = connection.execute(
+                    "SELECT * FROM workflow_runs WHERE incident_id=?", (incident_id,)
+                ).fetchone()
+                if run is None:
+                    raise KeyError(incident_id)
+                existing = connection.execute(
+                    "SELECT * FROM approval_records WHERE workflow_run_id=?", (run["id"],)
+                ).fetchone()
+                incident = self._load_incident(connection, incident_id)
+                if existing:
+                    if existing["decision"] == "rejected" and existing["action_id"] == action_id:
+                        connection.commit()
+                        return incident
+                    raise InvalidTransitionError("Approval already has a final decision")
+                if run["status"] != WorkflowStatus.WAITING_APPROVAL:
+                    raise InvalidTransitionError("Incident is not waiting for approval")
+                if not any(action.id == action_id for action in incident.actions):
+                    raise KeyError(action_id)
+                wait_step = connection.execute(
+                    "SELECT * FROM workflow_steps WHERE workflow_run_id=? AND step_key='wait_approval'",
+                    (run["id"],),
+                ).fetchone()
+                connection.execute(
+                    """INSERT INTO approval_records
+                    (workflow_run_id, action_id, decision, decided_by, decided_at, reason)
+                    VALUES (?, ?, 'rejected', ?, ?, ?)""",
+                    (run["id"], action_id, rejected_by, now.isoformat(), reason),
+                )
+                connection.execute(
+                    "UPDATE workflow_steps SET status=?, finished_at=?, version=version+1 WHERE id=?",
+                    (StepStatus.CANCELLED, now.isoformat(), wait_step["id"]),
+                )
+                incident.status = IncidentStatus.CANCELLED
+                incident.current_step_key = None
+                incident.approval_rejection_reason = reason
+                incident.updated_at = now
+                self._save_incident(connection, incident)
+                connection.execute(
+                    """UPDATE workflow_runs SET status=?, current_step_key=NULL, updated_at=?,
+                    finished_at=?, version=version+1 WHERE id=?""",
+                    (WorkflowStatus.CANCELLED, now.isoformat(), now.isoformat(), run["id"]),
+                )
+                self._event(
+                    connection,
+                    run["id"],
+                    incident_id,
+                    "approval.rejected",
+                    "wait_approval",
+                    {"rejected_by": rejected_by, "action_id": action_id, "reason": reason},
+                )
                 connection.commit()
                 return incident.model_copy(deep=True)
             except Exception:

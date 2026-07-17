@@ -135,6 +135,7 @@ class Incident(BaseModel):
     workflow_run_id: str | None = None
     current_step_key: str | None = None
     retry_count: int = 0
+    approval_rejection_reason: str | None = None
 
 
 class WorkflowRun(BaseModel):
@@ -201,6 +202,12 @@ class CreateIncidentRequest(BaseModel):
 class ApprovalRequest(BaseModel):
     action_id: str
     approved_by: str = Field(min_length=2, max_length=80)
+
+
+class RejectionRequest(BaseModel):
+    action_id: str
+    rejected_by: str = Field(min_length=2, max_length=80)
+    reason: str = Field(min_length=3, max_length=500)
 
 
 class EvaluationCase(BaseModel):

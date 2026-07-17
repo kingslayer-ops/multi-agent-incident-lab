@@ -1,0 +1,53 @@
+name: multi-agent-incident-lab-e2e
+
+services:
+  api:
+    build:
+      context: .
+      target: runtime
+    environment:
+      INCIDENT_LAB_LLM_MODE: mock
+      INCIDENT_LAB_DB_PATH: /app/data/e2e.db
+      INCIDENT_LAB_LLM_TIMEOUT: "2"
+    volumes:
+      - e2e-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  worker:
+    build:
+      context: .
+      target: runtime
+    command: ["python", "-m", "incident_lab.worker", "--poll-interval", "0.05"]
+    environment:
+      INCIDENT_LAB_LLM_MODE: mock
+      INCIDENT_LAB_DB_PATH: /app/data/e2e.db
+      INCIDENT_LAB_LEASE_SECONDS: "2"
+      INCIDENT_LAB_STEP_TIMEOUT_SECONDS: "10"
+      INCIDENT_LAB_WORKER_STEP_DELAY_MS: "300"
+    volumes:
+      - e2e-data:/app/data
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  frontend:
+    build:
+      context: .
+      target: e2e-frontend
+    ports:
+      - "4173:4173"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  e2e-data:

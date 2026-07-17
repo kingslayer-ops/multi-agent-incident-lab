@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
-from time import perf_counter
+from time import perf_counter, sleep
 from typing import Any
 
 from .engine import IncidentEngine
@@ -16,13 +16,17 @@ from .workflow_store import LostLeaseError, WorkflowClaim, WorkflowStore
 class WorkflowStepExecutor:
     """Business-step adapter; durable scheduling stays behind WorkflowStore."""
 
-    def __init__(self, store: WorkflowStore, provider: IntelligenceProvider | None = None) -> None:
+    def __init__(self, store: WorkflowStore, provider: IntelligenceProvider | None = None,
+                 step_delay_seconds: float = 0) -> None:
         self.store = store
         self.provider = provider or build_provider()
         self.policy = SafetyPolicy()
         self.remediation = RemediationExecutor()
+        self.step_delay_seconds = max(0, step_delay_seconds)
 
     def execute(self, claim: WorkflowClaim) -> tuple[Incident, dict[str, Any], bool]:
+        if self.step_delay_seconds:
+            sleep(self.step_delay_seconds)
         incident = claim.incident.model_copy(deep=True)
         scenario = get_scenario(incident.scenario_id)
         output = getattr(self, f"_{claim.step.step_key}")(claim, incident, scenario)

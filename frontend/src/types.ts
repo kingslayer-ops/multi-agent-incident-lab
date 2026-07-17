@@ -49,6 +49,7 @@ export type Incident = {
   workflow_run_id: string | null;
   current_step_key: string | null;
   retry_count: number;
+  approval_rejection_reason: string | null;
   symptom: string;
   created_at: string;
   root_cause: string | null;

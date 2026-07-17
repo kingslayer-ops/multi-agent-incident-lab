@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from .engine import IncidentEngine, dashboard_snapshot
-from .models import ApprovalRequest, CreateIncidentRequest, EvaluationReport, Incident, IncidentStatus, ScenarioSummary, WorkflowStatus
+from .models import ApprovalRequest, CreateIncidentRequest, EvaluationReport, Incident, IncidentStatus, RejectionRequest, ScenarioSummary, WorkflowStatus
 from .scenarios import get_scenario, list_scenarios
 from .store import SQLiteStore
 from .workflow_store import InvalidTransitionError, TERMINAL, WORKFLOW_VERSION, WorkflowStore
@@ -86,6 +86,7 @@ def create_app(store: SQLiteStore | None = None, workflow_store: WorkflowStore |
     def incident_events(
         incident_id: str,
         last_event_id: int = Header(0, alias="Last-Event-ID"),
+        after_event_id: int = Query(0, alias="after", ge=0),
         follow: bool = Query(True),
     ) -> StreamingResponse:
         try:
@@ -94,7 +95,7 @@ def create_app(store: SQLiteStore | None = None, workflow_store: WorkflowStore |
             raise HTTPException(status_code=404, detail="Incident not found") from exc
 
         def stream():
-            cursor = last_event_id
+            cursor = max(last_event_id, after_event_id)
             idle_ticks = 0
             while True:
                 events = workflow.list_events(run.id, cursor)
@@ -142,6 +143,17 @@ def create_app(store: SQLiteStore | None = None, workflow_store: WorkflowStore |
             return workflow.cancel(incident_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Incident not found") from exc
+
+    @app.post("/api/incidents/{incident_id}/reject", response_model=Incident)
+    def reject(incident_id: str, request: RejectionRequest) -> Incident:
+        try:
+            return workflow.reject(
+                incident_id, request.action_id, request.rejected_by, request.reason
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Incident, action, or approval request not found") from exc
+        except InvalidTransitionError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.post("/api/incidents/{incident_id}/retry", response_model=Incident)
     def retry(incident_id: str) -> Incident:
