@@ -82,7 +82,7 @@ jobs:
           docker compose -f docker-compose.e2e.yml logs --no-color > e2e/test-results/compose.log
       - name: Upload Playwright evidence
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-evidence-${{ github.run_attempt }}
           path: |

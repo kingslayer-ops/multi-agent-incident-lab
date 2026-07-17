@@ -1,29 +1,41 @@
 # Multi-Agent Incident Lab
 
-**以证据为核心、支持宕机恢复的多 Agent 故障响应实验室。**
+**以证据为核心、支持崩溃恢复与真实可观测性查询的多 Agent 事故响应实验平台。**
 
-[English](README.md) · [架构说明](docs/architecture.md) · [工作流可靠性](docs/workflow-reliability.md) · [端到端测试](docs/e2e-testing.md) · [安全策略](SECURITY.md)
+[English](README.md) · [架构说明](docs/architecture.md) · [工作流可靠性](docs/workflow-reliability.md) · [可观测性适配器](docs/observability-adapters.md) · [端到端测试](docs/e2e-testing.md) · [安全策略](SECURITY.md)
 
-项目由 8 个职责明确的角色协作完成故障分级、指标分析、日志检索、变更关联、根因判断、安全审查、沙箱修复和恢复验证。v1.2.0 将 API 与 Worker 分离，并把调查过程拆成 10 个稳定、带版本的持久化步骤。
+项目由 8 个职责明确的角色协作完成故障分级、指标分析、日志检索、变更关联、根因判断、安全审查、沙箱修复和恢复验证。API 与 Worker 独立运行，十个稳定步骤全部持久化到 SQLite WAL；Worker 崩溃后可以通过租约和检查点继续执行。
 
-## v1.2.0 核心能力
+> 本仓库是安全实验平台。它不会执行操作系统、云平台或 Kubernetes 命令。
 
-- `POST /api/incidents` 只创建任务并返回 `202 Accepted`，不会等待调查完成。
-- Worker 使用 SQLite `BEGIN IMMEDIATE` 原子领取步骤，并记录租约、心跳、版本和每次尝试。
-- Worker 崩溃后，其他 Worker 可回收过期租约并从当前步骤继续；旧 Worker 的迟到提交会被拒绝。
-- 状态更新与 SSE 事件在同一事务提交，SSE 支持 `Last-Event-ID` 断线回放。
-- 人工审批是唯一、最终且持久化的决定；修复操作使用幂等键抑制重复执行。
-- 支持自动重试、人工重试、取消请求和安全边界停止。
+## v1.3.0 核心能力
 
-项目采用“至少一次调度 + 幂等步骤提交”，不宣称 exactly-once。详细保证、失败窗口和边界见[工作流可靠性说明](docs/workflow-reliability.md)。
+- 保留确定性 Mock 指标和日志，作为离线演示、评测与 Playwright 回归基线。
+- 新增只读 Prometheus `/api/v1/query_range` 适配器，支持自定义具名 PromQL、查询窗口、步长和序列上限。
+- 新增只读 Loki `/loki/api/v1/query_range` 适配器，支持自定义 LogQL、查询窗口、行数上限和日志去重。
+- 支持 Bearer 或 Basic 认证；Loki 支持多租户 `X-Scope-OrgID`。
+- 超时、连接失败、429/5xx、认证失败、协议错误、空结果和超大响应均有明确原因码。
+- 默认按数据源独立降级到 Mock，并在证据中记录 `mode/provider/reason_code/retryable`；也可以关闭降级，让持久化 Worker 执行重试。
+- 不允许在 URL 中嵌入凭据，不提供跳过 TLS 校验选项，不把密钥和端点复制到错误消息。
 
-## v1.2.1 浏览器级验证
+详细配置和证据结构见[真实可观测性适配器说明](docs/observability-adapters.md)。
 
-- 6 条 Playwright Chromium 流程覆盖完整闭环、页面刷新、审批暂停、审批拒绝、Worker 重启和 SSE 断线恢复。
-- 页面使用稳定 `data-testid`，测试只等待业务状态和持久事件，不依赖文案、CSS 或固定休眠。
-- SSE 采用事件游标、去重和指数退避重连；Worker 暂停时页面显示等待恢复。
-- E2E 使用独立 API、Worker、前端和 SQLite 数据卷，不污染开发数据。
-- 失败时保存截图、视频、Playwright Trace、浏览器/网络日志和 Compose 日志。
+## 工作流可靠性
+
+- `POST /api/incidents` 只创建任务并返回 `202 Accepted`。
+- Worker 使用 SQLite `BEGIN IMMEDIATE` 原子领取步骤，记录租约、心跳、版本和每次尝试。
+- Worker 崩溃后，其他 Worker 可以回收过期租约并从当前步骤继续；旧 Worker 的迟到提交会被拒绝。
+- 状态更新与 SSE 事件在同一事务提交，SSE 支持事件游标、断线补发和去重。
+- 人工审批是唯一、最终且持久化的决定；沙箱修复使用幂等键抑制重复执行。
+- 支持自动重试、人工重试、拒绝审批、取消请求和安全边界停止。
+
+项目采用“至少一次调度 + 幂等步骤提交”，不宣称 exactly-once。详细保证和失败窗口见[工作流可靠性说明](docs/workflow-reliability.md)。
+
+## 浏览器级验证
+
+六条 Playwright Chromium 流程覆盖完整事故闭环、页面刷新恢复、审批暂停与继续、拒绝审批、Worker 真实崩溃和租约恢复，以及 SSE 断线补发与去重。
+
+E2E 使用独立 API、Worker、前端和 SQLite 数据卷，并明确固定为 Mock 遥测，不依赖外部 Prometheus/Loki。失败时保存截图、视频、Playwright Trace、浏览器/网络日志和 Compose 日志。
 
 ## 一键运行
 
@@ -31,16 +43,26 @@
 docker compose up --build
 ```
 
-访问 <http://localhost:8000>，API 文档位于 <http://localhost:8000/docs>。Compose 会启动独立的 `api` 与 `worker` 服务，并共享 SQLite WAL 数据卷。默认离线模式不需要模型密钥。
+访问 <http://localhost:8000>，API 文档位于 <http://localhost:8000/docs>。默认模式无需模型密钥或可观测性服务。
+
+启用真实数据源：
+
+```dotenv
+INCIDENT_LAB_TELEMETRY_MODE=live
+INCIDENT_LAB_PROMETHEUS_URL=https://prometheus.example.com
+INCIDENT_LAB_LOKI_URL=https://loki.example.com
+```
+
+生产环境应根据自己的指标名和日志标签配置 PromQL/LogQL 模板，具体见 `.env.example`。
 
 ## 本地开发
-
-安装依赖后分别启动 API 和 Worker：
 
 ```bash
 pip install -e ".[dev]"
 uvicorn incident_lab.api:app --app-dir src --reload
 ```
+
+另一个终端启动 Worker：
 
 ```bash
 python -m incident_lab.worker
@@ -55,11 +77,11 @@ docker compose config
 make e2e
 ```
 
-测试覆盖双 Worker 竞争、租约过期恢复、旧 Worker 提交拒绝、重试与取消、并发审批、事务回滚、SSE 回放、修复幂等，以及真实 Worker 子进程领取任务后崩溃并恢复。
+测试覆盖多 Worker 竞争、租约恢复、旧 Worker 提交拒绝、重试与取消、并发审批、事务回滚、SSE 回放、修复幂等、真实子进程崩溃，以及 Prometheus/Loki 请求契约、认证、解析和降级。
 
 ## 项目边界
 
-这是一个完成度较高、可复现的 Agent 故障响应模拟项目，不是真实生产级分布式控制平台。v1.2.x 仍使用 SQLite；真实 Prometheus/Loki、Redis/PostgreSQL 和远程命令执行均不在本版本范围内。
+这是作品集级事故响应实验平台，不是真实生产级分布式控制平面。v1.3.0 能读取有界的 Prometheus/Loki 查询结果，但仍使用 SQLite 协调和沙箱修复，也没有应用认证、多租户业务边界或远程命令执行。Mock 数据源继续作为稳定、可复现的演示基线。
 
 ## 许可证
 
