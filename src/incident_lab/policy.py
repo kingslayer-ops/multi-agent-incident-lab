@@ -15,7 +15,6 @@ class SafetyPolicy:
     def evaluate(self, action: RemediationAction) -> PolicyDecision:
         if action.risk in {RiskLevel.MEDIUM, RiskLevel.HIGH} and not action.approved:
             return PolicyDecision(False, "Human approval is required for mutating medium/high-risk actions.")
-        if not action.command_preview.startswith("opspilot "):
+        if not action.command_preview.startswith("incident-lab "):
             return PolicyDecision(False, "The command is outside the sandbox allow-list.")
         return PolicyDecision(True, "Action satisfies the approval and sandbox policies.")
-

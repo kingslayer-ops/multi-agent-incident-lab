@@ -1,6 +1,6 @@
-from opspilot.engine import IncidentEngine
-from opspilot.models import IncidentStatus
-from opspilot.store import InMemoryStore
+from incident_lab.engine import IncidentEngine
+from incident_lab.models import IncidentStatus
+from incident_lab.store import InMemoryStore
 
 
 def make_engine() -> IncidentEngine:

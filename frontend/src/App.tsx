@@ -88,7 +88,7 @@ function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">OP</div>
-          <div><strong>OpsPilot</strong><span>incident intelligence</span></div>
+          <div><strong>Incident Lab</strong><span>multi-agent response</span></div>
         </div>
         <nav>
           <a className="active" href="#overview"><span>01</span> Command center</a>
@@ -199,7 +199,7 @@ function App() {
           {evaluation && <div className="case-table">{evaluation.cases.map(item => <div key={item.scenario_id}><span className={item.correct ? "check" : "fail"}>{item.correct ? "PASS" : "FAIL"}</span><code>{item.scenario_id}</code><span>{item.predicted_root_cause}</span></div>)}</div>}
         </section>
 
-        <footer className="page-footer"><span>OpsPilot / deterministic demo runtime</span><span>Evidence first · approval gated · fully traceable</span></footer>
+        <footer className="page-footer"><span>Multi-Agent Incident Lab / deterministic runtime</span><span>Evidence first · approval gated · fully traceable</span></footer>
       </main>
     </div>
   );

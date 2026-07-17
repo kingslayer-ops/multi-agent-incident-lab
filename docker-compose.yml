@@ -1,18 +1,20 @@
+name: multi-agent-incident-lab
+
 services:
-  opspilot:
+  incident-lab:
     build: .
     ports:
       - "8000:8000"
     environment:
-      OPSPILOT_LLM_MODE: ${OPSPILOT_LLM_MODE:-mock}
-      OPSPILOT_DB_PATH: /app/data/opspilot.db
+      INCIDENT_LAB_LLM_MODE: ${INCIDENT_LAB_LLM_MODE:-mock}
+      INCIDENT_LAB_DB_PATH: /app/data/incident-lab.db
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPSPILOT_LLM_TIMEOUT: ${OPSPILOT_LLM_TIMEOUT:-12}
+      INCIDENT_LAB_LLM_TIMEOUT: ${INCIDENT_LAB_LLM_TIMEOUT:-12}
     volumes:
-      - opspilot-data:/app/data
+      - incident-lab-data:/app/data
     restart: unless-stopped
 
 volumes:
-  opspilot-data:
+  incident-lab-data:

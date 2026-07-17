@@ -17,7 +17,7 @@ from .store import IncidentStore, SQLiteStore
 
 def create_app(store: IncidentStore | None = None) -> FastAPI:
     app = FastAPI(
-        title="OpsPilot API",
+        title="Multi-Agent Incident Lab API",
         version="1.0.0",
         description="Evidence-driven multi-agent incident response workbench.",
     )
@@ -28,7 +28,9 @@ def create_app(store: IncidentStore | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    durable_store = store or SQLiteStore(os.getenv("OPSPILOT_DB_PATH", "data/opspilot.db"))
+    durable_store = store or SQLiteStore(
+        os.getenv("INCIDENT_LAB_DB_PATH", "data/incident-lab.db")
+    )
     engine = IncidentEngine(store=durable_store)
     app.state.engine = engine
 

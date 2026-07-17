@@ -38,7 +38,7 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         "remediation": {
             "title": "Restore the payment database pool limit",
             "description": "Roll back cfg-992 and restore the pool limit from 30 to 60, then verify waiters and P99 latency.",
-            "command": "opspilot rollback-config payment-service cfg-992",
+            "command": "incident-lab rollback-config payment-service cfg-992",
             "risk": "high",
         },
     },
@@ -71,7 +71,7 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         "remediation": {
             "title": "Roll back the unbounded cache release",
             "description": "Roll back deploy-2077 and cap cache size before a guarded redeployment.",
-            "command": "opspilot rollback-deploy inventory-service deploy-2077",
+            "command": "incident-lab rollback-deploy inventory-service deploy-2077",
             "risk": "high",
         },
     },
@@ -103,7 +103,7 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         "remediation": {
             "title": "Disable the faulty validation flag",
             "description": "Disable flag-441, replay a canary checkout, and monitor the 422 rate.",
-            "command": "opspilot disable-flag checkout-service flag-441",
+            "command": "incident-lab disable-flag checkout-service flag-441",
             "risk": "medium",
         },
     },
@@ -119,7 +119,7 @@ SCENARIOS.update(
             "changes": [{"id": "cert-2026-07", "summary": "Certificate rotation job failed", "minutes_before": 23}],
             "root_cause": "expired service TLS certificate",
             "alternatives": ["gateway CPU saturation", "upstream connection reset"],
-            "remediation": {"title": "Rotate the expired certificate", "description": "Activate the staged certificate and verify the trust chain.", "command": "opspilot rotate-cert api-gateway cert-2026-07", "risk": "high"},
+            "remediation": {"title": "Rotate the expired certificate", "description": "Activate the staged certificate and verify the trust chain.", "command": "incident-lab rotate-cert api-gateway cert-2026-07", "risk": "high"},
         },
         "redis-topology-stale": {
             "summary": ScenarioSummary(id="redis-topology-stale", title="Session cache redirect storm", service="session-service", symptom="Redis redirects and retry amplification push login latency above 3 seconds.", severity="SEV-2", difficulty="hard"),
@@ -128,7 +128,7 @@ SCENARIOS.update(
             "changes": [{"id": "cfg-redis-88", "summary": "Increased cluster topology cache TTL", "minutes_before": 31}],
             "root_cause": "stale Redis cluster topology cache",
             "alternatives": ["cache node memory pressure", "network packet loss"],
-            "remediation": {"title": "Refresh Redis topology", "description": "Invalidate the client topology cache and restore the safe TTL.", "command": "opspilot rollback-config session-service cfg-redis-88", "risk": "medium"},
+            "remediation": {"title": "Refresh Redis topology", "description": "Invalidate the client topology cache and restore the safe TTL.", "command": "incident-lab rollback-config session-service cfg-redis-88", "risk": "medium"},
         },
         "order-deadlock": {
             "summary": ScenarioSummary(id="order-deadlock", title="Order transaction deadlocks", service="order-service", symptom="Order confirmations intermittently fail while database lock waits spike.", severity="SEV-1", difficulty="hard"),
@@ -137,7 +137,7 @@ SCENARIOS.update(
             "changes": [{"id": "deploy-order-52", "summary": "Parallelized inventory and order row updates", "minutes_before": 19}],
             "root_cause": "database deadlock caused by inconsistent lock ordering",
             "alternatives": ["slow read replica", "connection pool exhaustion"],
-            "remediation": {"title": "Roll back parallel row updates", "description": "Restore deterministic lock ordering and replay failed transactions.", "command": "opspilot rollback-deploy order-service deploy-order-52", "risk": "high"},
+            "remediation": {"title": "Roll back parallel row updates", "description": "Restore deterministic lock ordering and replay failed transactions.", "command": "incident-lab rollback-deploy order-service deploy-order-52", "risk": "high"},
         },
         "notification-rate-limit": {
             "summary": ScenarioSummary(id="notification-rate-limit", title="Notification delivery backlog", service="notification-service", symptom="Email delivery is delayed and retry queues are growing rapidly.", severity="SEV-3", difficulty="medium"),
@@ -146,7 +146,7 @@ SCENARIOS.update(
             "changes": [{"id": "campaign-711", "summary": "Launched unthrottled marketing campaign", "minutes_before": 42}],
             "root_cause": "notification provider rate-limit exhaustion",
             "alternatives": ["worker crash loop", "message broker partition"],
-            "remediation": {"title": "Throttle campaign traffic", "description": "Pause campaign fan-out and drain the queue within provider quotas.", "command": "opspilot throttle-campaign notification-service campaign-711", "risk": "medium"},
+            "remediation": {"title": "Throttle campaign traffic", "description": "Pause campaign fan-out and drain the queue within provider quotas.", "command": "incident-lab throttle-campaign notification-service campaign-711", "risk": "medium"},
         },
         "event-schema-incompatibility": {
             "summary": ScenarioSummary(id="event-schema-incompatibility", title="Order events rejected", service="analytics-consumer", symptom="New order events enter the dead-letter queue after a producer rollout.", severity="SEV-2", difficulty="medium"),
@@ -155,7 +155,7 @@ SCENARIOS.update(
             "changes": [{"id": "deploy-producer-77", "summary": "Published order event schema v7", "minutes_before": 12}],
             "root_cause": "incompatible event schema deployment",
             "alternatives": ["broker storage pressure", "consumer autoscaling lag"],
-            "remediation": {"title": "Restore compatible event schema", "description": "Roll back schema v7 and replay dead-lettered events.", "command": "opspilot rollback-deploy event-producer deploy-producer-77", "risk": "high"},
+            "remediation": {"title": "Restore compatible event schema", "description": "Roll back schema v7 and replay dead-lettered events.", "command": "incident-lab rollback-deploy event-producer deploy-producer-77", "risk": "high"},
         },
         "service-dns-failure": {
             "summary": ScenarioSummary(id="service-dns-failure", title="Service discovery failures", service="recommendation-service", symptom="Recommendation calls time out because the profile service cannot be resolved.", severity="SEV-2", difficulty="medium"),
@@ -164,7 +164,7 @@ SCENARIOS.update(
             "changes": [{"id": "dns-zone-19", "summary": "Removed legacy profile service alias", "minutes_before": 8}],
             "root_cause": "service discovery DNS failure",
             "alternatives": ["profile service overload", "egress firewall denial"],
-            "remediation": {"title": "Restore the service alias", "description": "Restore the deleted DNS alias and validate resolution from a canary pod.", "command": "opspilot rollback-config dns dns-zone-19", "risk": "high"},
+            "remediation": {"title": "Restore the service alias", "description": "Restore the deleted DNS alias and validate resolution from a canary pod.", "command": "incident-lab rollback-config dns dns-zone-19", "risk": "high"},
         },
         "logging-disk-full": {
             "summary": ScenarioSummary(id="logging-disk-full", title="Logging nodes reject writes", service="logging-service", symptom="Audit logs are dropped as collector disks reach full capacity.", severity="SEV-1", difficulty="easy"),
@@ -173,7 +173,7 @@ SCENARIOS.update(
             "changes": [{"id": "cfg-retention-9", "summary": "Raised hot-log retention from 7 to 30 days", "minutes_before": 310}],
             "root_cause": "log volume disk exhaustion",
             "alternatives": ["collector CPU overload", "invalid log payloads"],
-            "remediation": {"title": "Restore safe log retention", "description": "Revert retention and compact expired segments without deleting active audit data.", "command": "opspilot rollback-config logging-service cfg-retention-9", "risk": "high"},
+            "remediation": {"title": "Restore safe log retention", "description": "Revert retention and compact expired segments without deleting active audit data.", "command": "incident-lab rollback-config logging-service cfg-retention-9", "risk": "high"},
         },
         "auth-clock-skew": {
             "summary": ScenarioSummary(id="auth-clock-skew", title="Authentication token failures", service="auth-service", symptom="Valid tokens are rejected as not-yet-valid on a subset of nodes.", severity="SEV-1", difficulty="hard"),
@@ -182,7 +182,7 @@ SCENARIOS.update(
             "changes": [{"id": "ntp-policy-12", "summary": "Changed NTP firewall policy", "minutes_before": 67}],
             "root_cause": "node clock skew invalidating authentication tokens",
             "alternatives": ["signing key mismatch", "token cache corruption"],
-            "remediation": {"title": "Restore time synchronization", "description": "Revert the NTP policy and resynchronize affected nodes.", "command": "opspilot rollback-config auth-service ntp-policy-12", "risk": "high"},
+            "remediation": {"title": "Restore time synchronization", "description": "Revert the NTP policy and resynchronize affected nodes.", "command": "incident-lab rollback-config auth-service ntp-policy-12", "risk": "high"},
         },
         "worker-thread-saturation": {
             "summary": ScenarioSummary(id="worker-thread-saturation", title="Report generation stalls", service="report-service", symptom="Interactive reports queue for minutes while CPU remains below 50%.", severity="SEV-2", difficulty="hard"),
@@ -191,7 +191,7 @@ SCENARIOS.update(
             "changes": [{"id": "deploy-report-31", "summary": "Moved exports onto the interactive worker pool", "minutes_before": 27}],
             "root_cause": "worker thread pool saturation",
             "alternatives": ["CPU saturation", "database query regression"],
-            "remediation": {"title": "Isolate export workloads", "description": "Roll back the shared worker pool and drain queued interactive jobs.", "command": "opspilot rollback-deploy report-service deploy-report-31", "risk": "high"},
+            "remediation": {"title": "Isolate export workloads", "description": "Roll back the shared worker pool and drain queued interactive jobs.", "command": "incident-lab rollback-deploy report-service deploy-report-31", "risk": "high"},
         },
     }
 )

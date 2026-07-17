@@ -130,12 +130,12 @@ class FallbackProvider:
 
 
 def build_provider() -> IntelligenceProvider:
-    if os.getenv("OPSPILOT_LLM_MODE", "mock").lower() != "openai-compatible":
+    if os.getenv("INCIDENT_LAB_LLM_MODE", "mock").lower() != "openai-compatible":
         return MockIntelligenceProvider()
     primary = OpenAICompatibleProvider(
         base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
         api_key=os.getenv("OPENAI_API_KEY", ""),
         model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
-        timeout=float(os.getenv("OPSPILOT_LLM_TIMEOUT", "12")),
+        timeout=float(os.getenv("INCIDENT_LAB_LLM_TIMEOUT", "12")),
     )
     return FallbackProvider(primary, MockIntelligenceProvider())
