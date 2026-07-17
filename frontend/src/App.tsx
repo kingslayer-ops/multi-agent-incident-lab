@@ -20,6 +20,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [provider, setProvider] = useState("initializing");
   const [streamStatus, setStreamStatus] = useState("idle");
+  const [workerWaiting, setWorkerWaiting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("Risk is not acceptable for this incident");
   const [postmortem, setPostmortem] = useState<string | null>(null);
   const lastEventIds = useRef(new Map<string, number>());
@@ -59,6 +60,7 @@ function App() {
     let reconnectTimer: number | null = null;
     let reconnectAttempt = 0;
     lastProgressAt.current = Date.now();
+    setWorkerWaiting(false);
 
     const refreshIncident = () => {
       const existing = activeRefreshes.current.get(incidentId);
@@ -97,6 +99,7 @@ function App() {
         reconnectAttempt = 0;
         lastProgressAt.current = Date.now();
         setStreamStatus("live");
+        setWorkerWaiting(false);
       };
       const eventNames = [
         "run.created", "step.started", "step.completed", "step.retry_scheduled",
@@ -111,6 +114,7 @@ function App() {
         if (eventId) lastEventIds.current.set(incidentId, eventId);
         lastProgressAt.current = Date.now();
         setStreamStatus("live");
+        setWorkerWaiting(false);
         void refreshIncident();
       };
       eventNames.forEach((name) => source?.addEventListener(name, update));
@@ -133,10 +137,13 @@ function App() {
   }, [active?.id, terminal]);
 
   useEffect(() => {
-    if (!active || terminal || active.status === "awaiting_approval") return;
+    if (!active || terminal || active.status === "awaiting_approval" || streamStatus !== "live") {
+      setWorkerWaiting(false);
+      return;
+    }
     const timer = window.setInterval(() => {
-      if (streamStatus === "live" && Date.now() - lastProgressAt.current > 1500) {
-        setStreamStatus("waiting-worker");
+      if (Date.now() - lastProgressAt.current > 1500) {
+        setWorkerWaiting(true);
       }
     }, 250);
     return () => window.clearInterval(timer);
@@ -271,8 +278,13 @@ function App() {
 
         {error && <div className="error-banner">{error}</div>}
         <div className={`connection-state connection-${streamStatus}`} data-testid="connection-state">
-          {streamStatus === "waiting-worker" ? "Waiting for worker recovery" : `Event stream: ${streamStatus}`}
+          {`Event stream: ${streamStatus}`}
         </div>
+        {workerWaiting && (
+          <div className="worker-recovery-state" data-testid="worker-recovery-state">
+            Waiting for worker recovery
+          </div>
+        )}
 
         <section className="metrics" id="overview">
           <article><span>INCIDENTS</span><strong>{dashboard?.incidents_total ?? 0}</strong><small>synthetic investigations</small></article>
