@@ -62,7 +62,8 @@ class RemediationExecutor:
 
     SAFE_PREFIX = "incident-lab "
 
-    def execute(self, command_preview: str) -> str:
+    def execute(self, command_preview: str, idempotency_key: str | None = None) -> str:
         if not command_preview.startswith(self.SAFE_PREFIX):
             raise PermissionError("Only Incident Lab sandbox commands are permitted")
-        return "Sandbox action completed; synthetic telemetry returned to baseline."
+        suffix = f" Idempotency key: {idempotency_key}." if idempotency_key else ""
+        return f"Sandbox action completed; synthetic telemetry returned to baseline.{suffix}"

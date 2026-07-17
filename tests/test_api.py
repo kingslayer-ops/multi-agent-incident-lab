@@ -1,56 +1,89 @@
+from time import perf_counter
+
 from fastapi.testclient import TestClient
 
+from incident_lab import __version__
 from incident_lab.api import create_app
-from incident_lab.store import InMemoryStore
+from incident_lab.store import SQLiteStore
+from incident_lab.workflow import WorkflowWorker
+from incident_lab.workflow_store import WorkflowStore
 
 
-def make_client() -> TestClient:
-    return TestClient(create_app(store=InMemoryStore()))
+def make_runtime(tmp_path):
+    database = tmp_path / "incident-lab.db"
+    durable = SQLiteStore(database)
+    workflow = WorkflowStore(database, __version__)
+    return TestClient(create_app(durable, workflow)), workflow
 
 
-def test_health_and_scenarios() -> None:
-    client = make_client()
+def test_health_and_scenarios(tmp_path) -> None:
+    client, _ = make_runtime(tmp_path)
     assert client.get("/health").json()["status"] == "ok"
     scenarios = client.get("/api/scenarios")
     assert scenarios.status_code == 200
     assert len(scenarios.json()) == 12
 
 
-def test_full_incident_api_flow() -> None:
-    client = make_client()
+def test_create_is_non_blocking_and_full_worker_flow(tmp_path) -> None:
+    client, store = make_runtime(tmp_path)
+    started = perf_counter()
     created = client.post("/api/incidents", json={"scenario_id": "payment-pool-exhaustion"})
-    assert created.status_code == 201
+    elapsed = perf_counter() - started
+    assert created.status_code == 202
+    assert elapsed < 0.5
     incident = created.json()
-    assert incident["status"] == "awaiting_approval"
+    assert incident["status"] == "queued"
+
+    worker = WorkflowWorker(store, "api-test")
+    assert worker.drain() == 7
+    waiting = client.get(f"/api/incidents/{incident['id']}").json()
+    assert waiting["status"] == "awaiting_approval"
 
     approved = client.post(
         f"/api/incidents/{incident['id']}/approve",
-        json={"action_id": incident["actions"][0]["id"], "approved_by": "api-tester"},
+        json={"action_id": waiting["actions"][0]["id"], "approved_by": "api-tester"},
     )
     assert approved.status_code == 200
-    assert approved.json()["status"] == "resolved"
+    assert approved.json()["status"] == "resuming"
+    assert worker.drain() == 3
+    resolved = client.get(f"/api/incidents/{incident['id']}").json()
+    assert resolved["status"] == "resolved"
     assert client.get("/api/dashboard").json()["incidents_resolved"] == 1
-    postmortem = client.get(f"/api/incidents/{incident['id']}/postmortem")
-    assert postmortem.status_code == 200
-    assert "Root cause" in postmortem.text
+    assert "Root cause" in client.get(f"/api/incidents/{incident['id']}/postmortem").text
 
 
-def test_invalid_scenario_returns_404() -> None:
-    response = make_client().post("/api/incidents", json={"scenario_id": "does-not-exist"})
-    assert response.status_code == 404
+def test_invalid_scenario_returns_404(tmp_path) -> None:
+    client, _ = make_runtime(tmp_path)
+    assert client.post("/api/incidents", json={"scenario_id": "does-not-exist"}).status_code == 404
 
 
-def test_evaluation_endpoint() -> None:
-    response = make_client().post("/api/evaluations/run")
+def test_evaluation_endpoint(tmp_path) -> None:
+    client, _ = make_runtime(tmp_path)
+    response = client.post("/api/evaluations/run")
     assert response.status_code == 200
     assert response.json()["root_cause_accuracy"] == 1.0
 
 
-def test_incident_sse_replays_ordered_agent_events() -> None:
-    client = make_client()
+def test_sse_replays_after_last_event_id(tmp_path) -> None:
+    client, store = make_runtime(tmp_path)
     incident = client.post("/api/incidents", json={"scenario_id": "auth-clock-skew"}).json()
-    response = client.get(f"/api/incidents/{incident['id']}/events")
-    assert response.status_code == 200
-    assert response.headers["content-type"].startswith("text/event-stream")
-    assert "event: agent.step" in response.text
-    assert "event: incident.state" in response.text
+    WorkflowWorker(store, "sse-test").run_once()
+    all_events = client.get(f"/api/incidents/{incident['id']}/events?follow=false")
+    assert all_events.status_code == 200
+    ids = [int(line.removeprefix("id: ")) for line in all_events.text.splitlines() if line.startswith("id: ")]
+    assert ids == sorted(ids)
+    replay = client.get(
+        f"/api/incidents/{incident['id']}/events?follow=false",
+        headers={"Last-Event-ID": str(ids[0])},
+    )
+    replay_ids = [int(line.removeprefix("id: ")) for line in replay.text.splitlines() if line.startswith("id: ")]
+    assert replay_ids == ids[1:]
+
+
+def test_cancel_and_retry_endpoints(tmp_path) -> None:
+    client, _ = make_runtime(tmp_path)
+    incident = client.post("/api/incidents", json={"scenario_id": "auth-clock-skew"}).json()
+    cancelled = client.post(f"/api/incidents/{incident['id']}/cancel")
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "cancelled"
+    assert client.post(f"/api/incidents/{incident['id']}/retry").status_code == 409

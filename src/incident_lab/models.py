@@ -13,16 +13,39 @@ def utc_now() -> datetime:
 
 
 class IncidentStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    RETRY_SCHEDULED = "retry_scheduled"
     INVESTIGATING = "investigating"
     AWAITING_APPROVAL = "awaiting_approval"
+    RESUMING = "resuming"
+    CANCEL_REQUESTED = "cancel_requested"
     RESOLVED = "resolved"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class StepStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    RETRY_SCHEDULED = "retry_scheduled"
+    WAITING_APPROVAL = "waiting_approval"
     COMPLETED = "completed"
     BLOCKED = "blocked"
     FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class WorkflowStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    RETRY_SCHEDULED = "retry_scheduled"
+    WAITING_APPROVAL = "waiting_approval"
+    RESUMING = "resuming"
+    CANCEL_REQUESTED = "cancel_requested"
+    RESOLVED = "resolved"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class RiskLevel(StrEnum):
@@ -109,6 +132,66 @@ class Incident(BaseModel):
     estimated_cost_usd: float = 0
     provider: str = "unknown"
     fallback_events: list[FallbackEvent] = Field(default_factory=list)
+    workflow_run_id: str | None = None
+    current_step_key: str | None = None
+    retry_count: int = 0
+
+
+class WorkflowRun(BaseModel):
+    id: str
+    incident_id: str
+    workflow_name: str
+    workflow_version: str
+    schema_version: int
+    engine_version: str
+    status: WorkflowStatus
+    current_step_key: str | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    updated_at: datetime
+    cancel_requested_at: datetime | None = None
+    failure_code: str | None = None
+    failure_message: str | None = None
+    version: int = 0
+
+
+class WorkflowStep(BaseModel):
+    id: str
+    workflow_run_id: str
+    step_key: str
+    step_order: int
+    agent_name: str
+    status: StepStatus
+    input_json: dict[str, Any] = Field(default_factory=dict)
+    output_json: dict[str, Any] = Field(default_factory=dict)
+    policy_json: dict[str, Any] = Field(default_factory=dict)
+    attempt_count: int = 0
+    max_attempts: int = 3
+    available_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    next_retry_at: datetime | None = None
+    timeout_at: datetime | None = None
+    lease_owner: str | None = None
+    lease_expires_at: datetime | None = None
+    heartbeat_at: datetime | None = None
+    idempotency_key: str
+    error_type: str | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    version: int = 0
+
+
+class WorkflowEvent(BaseModel):
+    id: int
+    workflow_run_id: str
+    incident_id: str
+    event_type: str
+    step_key: str | None = None
+    sequence_number: int
+    payload: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
 
 
 class CreateIncidentRequest(BaseModel):
