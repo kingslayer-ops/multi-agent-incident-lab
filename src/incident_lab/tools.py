@@ -60,10 +60,9 @@ class ScenarioToolbox:
 class RemediationExecutor:
     """A sandbox executor: it records an action but never touches real systems."""
 
-    SAFE_PREFIX = "opspilot "
+    SAFE_PREFIX = "incident-lab "
 
     def execute(self, command_preview: str) -> str:
         if not command_preview.startswith(self.SAFE_PREFIX):
-            raise PermissionError("Only OpsPilot sandbox commands are permitted")
+            raise PermissionError("Only Incident Lab sandbox commands are permitted")
         return "Sandbox action completed; synthetic telemetry returned to baseline."
-

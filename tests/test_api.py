@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
-from opspilot.api import create_app
-from opspilot.store import InMemoryStore
+from incident_lab.api import create_app
+from incident_lab.store import InMemoryStore
 
 
 def make_client() -> TestClient:

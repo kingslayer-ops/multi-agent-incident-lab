@@ -1,16 +1,16 @@
-# OpsPilot
+# Multi-Agent Incident Lab
 
 **Evidence-driven multi-agent incident response with durable checkpoints, human approval, and reproducible evaluation.**
 
 [中文文档](README.zh-CN.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
-OpsPilot is a full-stack incident investigation workbench. Eight specialized roles collect telemetry, correlate changes, build evidence-linked hypotheses, review risk, request human approval, execute a sandbox remediation, and verify recovery. The complete workflow runs offline with deterministic intelligence, or against an OpenAI-compatible model with automatic fallback.
+Multi-Agent Incident Lab is a full-stack incident investigation workbench. Eight specialized roles collect telemetry, correlate changes, build evidence-linked hypotheses, review risk, request human approval, execute a sandbox remediation, and verify recovery. The complete workflow runs offline with deterministic intelligence, or against an OpenAI-compatible model with automatic fallback.
 
-> OpsPilot is a safe simulation. It never invokes operating-system, cloud, or Kubernetes commands.
+> Multi-Agent Incident Lab is a safe simulation. It never invokes operating-system, cloud, or Kubernetes commands.
 
 ## Why it is different
 
-Most agent demos expose only a final answer. Production incident response also needs provenance, resumable state, bounded tools, approval gates, degradation behavior, and measurable reliability. OpsPilot makes those properties visible and testable.
+Most agent demos expose only a final answer. Production incident response also needs provenance, resumable state, bounded tools, approval gates, degradation behavior, and measurable reliability. This project makes those properties visible and testable.
 
 ## Highlights
 
@@ -50,9 +50,9 @@ Requirements: Docker with Compose support.
 docker compose up --build
 ```
 
-Open <http://localhost:8000>. API documentation is at <http://localhost:8000/docs>. Runtime data is kept in the named `opspilot-data` volume.
+Open <http://localhost:8000>. API documentation is at <http://localhost:8000/docs>. Runtime data is kept in the named `incident-lab-data` volume.
 
-The default `mock` mode requires no API key. To use an OpenAI-compatible endpoint, copy `.env.example`, set `OPSPILOT_LLM_MODE=openai-compatible`, configure the endpoint/model/key, and pass the environment file to Compose. Any timeout, connection error, or invalid structured result is recorded and falls back to the offline provider.
+The default `mock` mode requires no API key. To use an OpenAI-compatible endpoint, copy `.env.example`, set `INCIDENT_LAB_LLM_MODE=openai-compatible`, configure the endpoint/model/key, and pass the environment file to Compose. Any timeout, connection error, or invalid structured result is recorded and falls back to the offline provider.
 
 ## Local development
 
@@ -62,7 +62,7 @@ Backend (Python 3.11+):
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-uvicorn opspilot.api:app --app-dir src --reload
+uvicorn incident_lab.api:app --app-dir src --reload
 ```
 
 Frontend (Node.js 20+):
@@ -106,7 +106,7 @@ curl -X POST http://localhost:8000/api/incidents \
 ## Verification
 
 ```bash
-pytest --cov=opspilot --cov-report=term-missing --cov-fail-under=90
+pytest --cov=incident_lab --cov-report=term-missing --cov-fail-under=90
 cd frontend && npm run build
 docker compose build
 ```
@@ -116,8 +116,8 @@ The test suite checks the investigation and approval lifecycle, unsafe-action pr
 ## Repository layout
 
 ```text
-opspilot/
-├── src/opspilot/       # API, workflow, providers, policies, persistence, tools
+multi-agent-incident-lab/
+├── src/incident_lab/   # API, workflow, providers, policies, persistence, tools
 ├── tests/              # Unit and HTTP integration tests
 ├── frontend/           # React + TypeScript command center
 ├── docs/               # Architecture decisions
@@ -128,7 +128,7 @@ opspilot/
 
 ## Security and scope
 
-The executor accepts only the `opspilot` simulation command namespace and never starts a shell. Model output cannot approve actions or change policy. Read [SECURITY.md](SECURITY.md) before connecting external telemetry, and report vulnerabilities with a private GitHub security advisory.
+The executor accepts only the `incident-lab` simulation command namespace and never starts a shell. Model output cannot approve actions or change policy. Read [SECURITY.md](SECURITY.md) before connecting external telemetry, and report vulnerabilities with a private GitHub security advisory.
 
 ## License
 

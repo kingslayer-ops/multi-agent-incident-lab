@@ -1,5 +1,5 @@
 {
-  "name": "opspilot-console",
+  "name": "multi-agent-incident-lab-console",
   "private": true,
   "version": "1.0.0",
   "type": "module",

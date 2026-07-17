@@ -2,7 +2,7 @@ from typing import Any
 
 import json
 
-from opspilot.provider import (
+from incident_lab.provider import (
     Diagnosis,
     FallbackProvider,
     MockIntelligenceProvider,
@@ -59,5 +59,5 @@ class MockSummary:
 
 
 def test_build_provider_defaults_to_offline_mock(monkeypatch) -> None:
-    monkeypatch.delenv("OPSPILOT_LLM_MODE", raising=False)
+    monkeypatch.delenv("INCIDENT_LAB_LLM_MODE", raising=False)
     assert isinstance(build_provider(), MockIntelligenceProvider)

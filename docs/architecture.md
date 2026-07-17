@@ -1,6 +1,6 @@
 # Architecture
 
-OpsPilot separates deterministic safety and tool execution from model-driven reasoning. The demo provider is deterministic, which makes the repository runnable without credentials and keeps the evaluation suite reproducible.
+Multi-Agent Incident Lab separates deterministic safety and tool execution from model-driven reasoning. The demo provider is deterministic, which makes the repository runnable without credentials and keeps the evaluation suite reproducible.
 
 ```mermaid
 flowchart LR
@@ -25,7 +25,7 @@ flowchart LR
 - `ScenarioToolbox` exposes an explicit read-only tool allow-list.
 - `IntelligenceProvider` makes model reasoning replaceable. The default implementation is deterministic.
 - `SafetyPolicy` is independent from the provider. A model cannot approve its own mutating action.
-- `RemediationExecutor` accepts only `opspilot` sandbox commands and never invokes a system shell.
+- `RemediationExecutor` accepts only `incident-lab` sandbox commands and never invokes a system shell.
 - Every hypothesis points to evidence IDs so conclusions can be audited.
 - `SQLiteStore` persists JSON checkpoints with WAL journaling; `InMemoryStore` isolates tests.
 - `FallbackProvider` records degradation when the OpenAI-compatible provider times out or violates the response schema.

@@ -1,10 +1,10 @@
-from opspilot.engine import IncidentEngine
-from opspilot.store import SQLiteStore
+from incident_lab.engine import IncidentEngine
+from incident_lab.store import SQLiteStore
 import pytest
 
 
 def test_sqlite_store_survives_reopen(tmp_path) -> None:
-    path = tmp_path / "opspilot.db"
+    path = tmp_path / "incident-lab.db"
     first = IncidentEngine(store=SQLiteStore(path))
     incident = first.investigate("order-deadlock")
 
@@ -16,7 +16,7 @@ def test_sqlite_store_survives_reopen(tmp_path) -> None:
 
 
 def test_sqlite_persists_evaluation_report(tmp_path) -> None:
-    path = tmp_path / "opspilot.db"
+    path = tmp_path / "incident-lab.db"
     report = IncidentEngine(store=SQLiteStore(path)).evaluate()
     recovered = SQLiteStore(path).latest_evaluation()
     assert recovered is not None
