@@ -43,12 +43,12 @@ SQLite runs in WAL mode with a busy timeout. `BEGIN IMMEDIATE` serializes the sh
 
 The orchestration boundary does not expose SQLite to agents or API routes. A future production adapter can map the same operations to PostgreSQL row locking and a distributed queue without changing step business logic.
 
-## Non-goals for v1.2.0
+## Current boundaries
 
 - Redis, Celery, Kafka, or PostgreSQL coordination
-- real Prometheus/Loki ingestion
+- Prometheus/Loki writes, alert management, or unbounded queries; v1.3 provides bounded read-only range-query adapters
 - remote shell, Kubernetes, or cloud mutations
 - exactly-once external side effects
 - open-ended dynamic workflow graphs
 
-The release deliberately deepens one production property—recoverability—without adding pages, agents, or fault scenarios.
+The project deliberately deepens reliability and evidence ingestion without claiming to be a production distributed control plane.

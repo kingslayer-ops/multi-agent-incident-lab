@@ -2,13 +2,40 @@
 
 **以证据为核心、支持崩溃恢复与真实可观测性查询的多 Agent 事故响应实验平台。**
 
+[![CI](https://github.com/kingslayer-ops/multi-agent-incident-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/kingslayer-ops/multi-agent-incident-lab/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/kingslayer-ops/multi-agent-incident-lab?display_name=tag)](https://github.com/kingslayer-ops/multi-agent-incident-lab/releases/latest)
+![覆盖率门槛](https://img.shields.io/badge/coverage-%E2%89%A590%25-brightgreen)
+[![License](https://img.shields.io/github/license/kingslayer-ops/multi-agent-incident-lab)](LICENSE)
+
 [English](README.md) · [架构说明](docs/architecture.md) · [工作流可靠性](docs/workflow-reliability.md) · [可观测性适配器](docs/observability-adapters.md) · [端到端测试](docs/e2e-testing.md) · [安全策略](SECURITY.md)
 
 项目由 8 个职责明确的角色协作完成故障分级、指标分析、日志检索、变更关联、根因判断、安全审查、沙箱修复和恢复验证。API 与 Worker 独立运行，十个稳定步骤全部持久化到 SQLite WAL；Worker 崩溃后可以通过租约和检查点继续执行。
 
 > 本仓库是安全实验平台。它不会执行操作系统、云平台或 Kubernetes 命令。
 
-## v1.3.0 核心能力
+## 产品展示
+
+![Multi-Agent Incident Lab 展示证据关联根因、持久化审批检查点和 Agent 调查轨迹](docs/assets/command-center.png)
+
+截图使用固定数据库连接池故障，并停留在持久化审批检查点：浏览器同时展示证据关联根因、置信度、不可变证据数量、Agent 调查轨迹和工作流状态。同一条浏览器闭环已由仓库现有 Playwright 测试覆盖。
+
+| 持久化工作流 | 人工控制 | 可观测且可复现 |
+| --- | --- | --- |
+| 租约领取、心跳、检查点、旧 Worker 隔离、重试、取消与恢复 | 幂等沙箱修复前必须存在最终且持久化的人工批准 | 只读 Prometheus/Loki 适配器可独立降级到确定性 Mock 基线 |
+
+## 系统架构
+
+![系统架构图：React 控制台、FastAPI 控制面、SQLite 持久化边界、Worker、调查角色、可观测性数据源、安全策略、人工审批和沙箱修复](docs/assets/system-architecture.svg)
+
+API 不会同步等待调查完成。Worker 使用 `BEGIN IMMEDIATE` 原子领取一个可运行步骤，记录尝试和事件，并且只有在仍持有匹配的租约版本时才能提交输出。可编辑源文件见 [`system-architecture.drawio`](docs/assets/system-architecture.drawio)。
+
+## Worker 崩溃恢复
+
+![Worker 恢复时序图：Worker A 崩溃、租约过期、Worker B 从检查点恢复、旧提交被隔离，以及浏览器补发缺失事件](docs/assets/worker-recovery-sequence.svg)
+
+Worker 进程崩溃后，其他 Worker 会回收过期租约并从持久化步骤继续；旧 Worker 的迟到提交会被 owner/version fencing 拒绝。浏览器使用 `Last-Event-ID` 只补发断线期间缺失的事件。详细保证见[工作流可靠性说明](docs/workflow-reliability.md)，可编辑源文件见 [`worker-recovery-sequence.drawio`](docs/assets/worker-recovery-sequence.drawio)。
+
+## v1.3 核心能力
 
 - 保留确定性 Mock 指标和日志，作为离线演示、评测与 Playwright 回归基线。
 - 新增只读 Prometheus `/api/v1/query_range` 适配器，支持自定义具名 PromQL、查询窗口、步长和序列上限。
@@ -81,7 +108,7 @@ make e2e
 
 ## 项目边界
 
-这是作品集级事故响应实验平台，不是真实生产级分布式控制平面。v1.3.0 能读取有界的 Prometheus/Loki 查询结果，但仍使用 SQLite 协调和沙箱修复，也没有应用认证、多租户业务边界或远程命令执行。Mock 数据源继续作为稳定、可复现的演示基线。
+这是作品集级事故响应实验平台，不是真实生产级分布式控制平面。v1.3.1 能读取有界的 Prometheus/Loki 查询结果，但仍使用 SQLite 协调和沙箱修复，也没有应用认证、多租户业务边界或远程命令执行。Mock 数据源继续作为稳定、可复现的演示基线。
 
 ## 许可证
 

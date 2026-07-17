@@ -2,6 +2,8 @@
 
 Multi-Agent Incident Lab separates request handling, durable orchestration, model reasoning, deterministic policy, and sandbox execution.
 
+The polished overview used in the repository front page is available as an [SVG](assets/system-architecture.svg) with an editable [Draw.io source](assets/system-architecture.drawio).
+
 ```mermaid
 flowchart TB
     UI["React command center"] --> API["FastAPI API process"]
