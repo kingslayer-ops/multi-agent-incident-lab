@@ -87,7 +87,7 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">OP</div>
+          <div className="brand-mark">IL</div>
           <div><strong>Incident Lab</strong><span>multi-agent response</span></div>
         </div>
         <nav>

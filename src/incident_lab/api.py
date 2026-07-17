@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import __version__
 from .engine import IncidentEngine, dashboard_snapshot
 from .models import ApprovalRequest, CreateIncidentRequest, EvaluationReport, Incident, ScenarioSummary
 from .scenarios import list_scenarios
@@ -18,7 +19,7 @@ from .store import IncidentStore, SQLiteStore
 def create_app(store: IncidentStore | None = None) -> FastAPI:
     app = FastAPI(
         title="Multi-Agent Incident Lab API",
-        version="1.0.0",
+        version=__version__,
         description="Evidence-driven multi-agent incident response workbench.",
     )
     app.add_middleware(

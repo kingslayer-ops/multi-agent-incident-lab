@@ -15,6 +15,12 @@ jobs:
           cache: pip
       - run: pip install -e ".[dev]"
       - run: pytest --cov=incident_lab --cov-report=term-missing --cov-fail-under=90
+      - name: Reject legacy branding
+        run: |
+          if rg -n -i 'ops[p]ilot|brand-mark.*>O[P]<' .; then
+            echo "Legacy project branding detected."
+            exit 1
+          fi
 
   frontend:
     runs-on: ubuntu-latest
