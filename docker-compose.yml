@@ -35,7 +35,10 @@ services:
       - incident-lab-data:/app/data
     restart: unless-stopped
     healthcheck:
-      disable: true
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
   incident-lab-data:

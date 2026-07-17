@@ -34,7 +34,10 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      disable: true
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
 
   frontend:
     build:
