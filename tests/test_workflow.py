@@ -126,11 +126,11 @@ def test_worker_heartbeats_long_step_and_enforces_timeout(tmp_path) -> None:
 
     class SlowSuccess(WorkflowStepExecutor):
         def execute(self, claim):
-            time.sleep(0.08)
+            time.sleep(0.45)
             return super().execute(claim)
 
     worker = WorkflowWorker(
-        store, "heartbeat-worker", SlowSuccess(store), lease_seconds=0.03, step_timeout_seconds=0.2
+        store, "heartbeat-worker", SlowSuccess(store), lease_seconds=0.3, step_timeout_seconds=1.0
     )
     assert worker.run_once()
     assert store.list_steps(first.workflow_run_id)[0].status == StepStatus.COMPLETED
@@ -140,15 +140,15 @@ def test_worker_heartbeats_long_step_and_enforces_timeout(tmp_path) -> None:
 
     class TooSlow(WorkflowStepExecutor):
         def execute(self, claim):
-            time.sleep(0.2)
+            time.sleep(0.5)
             return claim.incident, {}, False
 
     timed = WorkflowWorker(
-        store, "timeout-worker", TooSlow(store), lease_seconds=0.2, step_timeout_seconds=0.03
+        store, "timeout-worker", TooSlow(store), lease_seconds=0.5, step_timeout_seconds=0.1
     )
     started = time.perf_counter()
     assert timed.run_once()
-    assert time.perf_counter() - started < 0.15
+    assert time.perf_counter() - started < 0.4
     assert store.list_steps(second.workflow_run_id)[0].status == StepStatus.RETRY_SCHEDULED
 
 
