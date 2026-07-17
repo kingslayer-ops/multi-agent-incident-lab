@@ -101,9 +101,10 @@ test("@resilience worker restart recovers the browser workflow", async ({ page, 
   await startIncident(page, "redis-topology-stale");
   await expect(page.getByTestId("trace-step").first()).toBeVisible();
   const before = await traceIds(page);
-  compose("stop", "worker");
+  compose("kill", "worker");
   try {
-    await expect(page.getByTestId("connection-state")).toHaveText("Waiting for worker recovery");
+    await expect(page.getByTestId("connection-state")).toHaveText("Event stream: live");
+    await expect(page.getByTestId("worker-recovery-state")).toHaveText("Waiting for worker recovery");
     compose("start", "worker");
     await waitForApproval(page);
     const recovered = await traceIds(page);

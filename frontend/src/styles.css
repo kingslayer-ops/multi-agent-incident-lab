@@ -46,7 +46,8 @@ h1 em { color: var(--muted); font-style: normal; font-weight: 400; }
 .health-ring small { color: var(--muted); font-size: 10px; margin-top: 5px; }
 .error-banner { padding: 12px 16px; border: 1px solid rgba(255,107,107,.4); background: rgba(255,107,107,.08); color: #ff9a9a; margin-bottom: 18px; }
 .connection-state { width: fit-content; margin: -25px 0 22px auto; color: var(--muted); font: 9px "IBM Plex Mono"; text-transform: uppercase; letter-spacing: .08em; }
-.connection-live { color: var(--cyan); }.connection-reconnecting, .connection-waiting-worker { color: var(--amber); }
+.connection-live { color: var(--cyan); }.connection-reconnecting { color: var(--amber); }
+.worker-recovery-state { width: fit-content; margin: -17px 0 14px auto; color: var(--amber); font: 9px "IBM Plex Mono"; text-transform: uppercase; letter-spacing: .08em; }
 
 .metrics { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); margin-bottom: 42px; }
 .metrics article { padding: 19px 22px; border-right: 1px solid var(--line); }
