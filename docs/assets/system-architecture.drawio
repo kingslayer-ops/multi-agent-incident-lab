@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="30.3.11">
+  <diagram name="System Architecture">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="MULTI-AGENT INCIDENT LAB / SYSTEM ARCHITECTURE" style="text;html=1;align=left;verticalAlign=middle;fontStyle=1;fontSize=20;fontColor=#17212b;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="720" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="Evidence-driven investigation with durable recovery and human-controlled remediation" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#687787;" vertex="1" parent="1">
+          <mxGeometry x="40" y="65" width="720" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="ui" value="&lt;b&gt;React Command Center&lt;/b&gt;&lt;br&gt;Live investigation · approval · replay" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fontColor=#143a35;fillColor=#dff7f2;strokeColor=#48bca8;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="550" y="100" width="300" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="api" value="&lt;b&gt;FastAPI Control Plane&lt;/b&gt;&lt;br&gt;Commands · validation · 202 Accepted" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fontColor=#1f3e58;fillColor=#e5f1fb;strokeColor=#6c9fc8;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="550" y="230" width="300" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="sse" value="&lt;b&gt;Replayable SSE&lt;/b&gt;&lt;br&gt;Last-Event-ID · ordered events" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fontColor=#41556b;fillColor=#f0f5fa;strokeColor=#8ea6bd;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="980" y="165" width="260" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="db" value="&lt;b&gt;SQLite WAL Durability Boundary&lt;/b&gt;&lt;br&gt;Checkpoints · leases · attempts · transactional events" style="shape=cylinder3;whiteSpace=wrap;html=1;fontColor=#254b32;fillColor=#e5f4e9;strokeColor=#76ad85;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="540" y="360" width="320" height="95" as="geometry"/>
+        </mxCell>
+        <mxCell id="worker" value="&lt;b&gt;Durable Worker Runtime&lt;/b&gt;&lt;br&gt;Atomic claim · heartbeat · fencing · resume" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fontColor=#614916;fillColor=#fff3d9;strokeColor=#d9a83e;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="550" y="510" width="300" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="agents" value="&lt;b&gt;8 Investigation Roles&lt;/b&gt;&lt;br&gt;Triage → telemetry → evidence → diagnosis" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fontColor=#614916;fillColor=#fff8e8;strokeColor=#d9a83e;" vertex="1" parent="1">
+          <mxGeometry x="550" y="640" width="300" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="obs" value="&lt;b&gt;Observability Provider&lt;/b&gt;&lt;br&gt;Bound · normalize · audit · fallback" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fontColor=#51376a;fillColor=#f1e9f8;strokeColor=#a27ac3;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="120" y="640" width="280" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="prom" value="Prometheus&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;read-only metrics&lt;/font&gt;" style="rounded=1;dashed=1;whiteSpace=wrap;html=1;fontColor=#4d5966;fillColor=#f7f8fa;strokeColor=#8c98a5;" vertex="1" parent="1">
+          <mxGeometry x="20" y="790" width="150" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="loki" value="Loki&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;read-only logs&lt;/font&gt;" style="rounded=1;dashed=1;whiteSpace=wrap;html=1;fontColor=#4d5966;fillColor=#f7f8fa;strokeColor=#8c98a5;" vertex="1" parent="1">
+          <mxGeometry x="185" y="790" width="150" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="mock" value="Deterministic Mock&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;regression baseline&lt;/font&gt;" style="rounded=1;dashed=1;whiteSpace=wrap;html=1;fontColor=#4d5966;fillColor=#f7f8fa;strokeColor=#8c98a5;" vertex="1" parent="1">
+          <mxGeometry x="350" y="790" width="170" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="policy" value="&lt;b&gt;Deterministic Safety Policy&lt;/b&gt;&lt;br&gt;Model output cannot bypass control" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fontColor=#713139;fillColor=#fdebed;strokeColor=#dc7580;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="550" y="790" width="300" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="approval" value="&lt;b&gt;Human Approval Gate&lt;/b&gt;&lt;br&gt;Final durable decision" style="rhombus;whiteSpace=wrap;html=1;fontColor=#713139;fillColor=#fdebed;strokeColor=#dc7580;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="900" y="780" width="210" height="95" as="geometry"/>
+        </mxCell>
+        <mxCell id="remediation" value="&lt;b&gt;Sandbox Remediation&lt;/b&gt;&lt;br&gt;Idempotent simulated action" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fontColor=#143a35;fillColor=#dff7f2;strokeColor=#48bca8;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="790" width="220" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" value="REST commands" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;strokeColor=#5c7084;fontColor=#536577;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="ui" target="api"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" value="transactional state" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;strokeColor=#5c7084;fontColor=#536577;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="api" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" value="claim / heartbeat / commit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;strokeColor=#5c7084;fontColor=#536577;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="db" target="worker"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" value="versioned steps" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;strokeColor=#5c7084;fontColor=#536577;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="worker" target="agents"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" value="bounded tools" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;strokeColor=#8a67a5;fontColor=#6b4d82;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="obs" target="agents"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" value="evidence-linked action" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;strokeColor=#5c7084;fontColor=#536577;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="agents" target="policy"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" value="policy pass" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;strokeColor=#b35f69;fontColor=#713139;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="policy" target="approval"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" value="approved" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;strokeColor=#48a391;fontColor=#2e7468;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="approval" target="remediation"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" value="ordered events" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;strokeColor=#7d92a6;fontColor=#536577;labelBackgroundColor=#ffffff;exitX=1;exitY=0.35;entryX=0;entryY=1;" edge="1" parent="1" source="db" target="sse"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="920" y="395"/><mxPoint x="920" y="240"/></Array></mxGeometry></mxCell>
+        <mxCell id="e10" value="live + replay" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;strokeColor=#7d92a6;fontColor=#536577;labelBackgroundColor=#ffffff;exitX=0;exitY=0.25;entryX=1;entryY=0.5;" edge="1" parent="1" source="sse" target="ui"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="930" y="185"/><mxPoint x="930" y="140"/></Array></mxGeometry></mxCell>
+        <mxCell id="e11" value="metrics" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;dashed=1;strokeColor=#8a67a5;fontColor=#6b4d82;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;entryX=0.15;entryY=1;" edge="1" parent="1" source="prom" target="obs"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e12" value="logs" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;dashed=1;strokeColor=#8a67a5;fontColor=#6b4d82;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="loki" target="obs"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e13" value="fallback" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;dashed=1;strokeColor=#8a67a5;fontColor=#6b4d82;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;entryX=0.85;entryY=1;" edge="1" parent="1" source="mock" target="obs"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

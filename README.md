@@ -2,11 +2,38 @@
 
 **Evidence-driven multi-agent incident response with durable recovery and real observability adapters.**
 
+[![CI](https://github.com/kingslayer-ops/multi-agent-incident-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/kingslayer-ops/multi-agent-incident-lab/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/kingslayer-ops/multi-agent-incident-lab?display_name=tag)](https://github.com/kingslayer-ops/multi-agent-incident-lab/releases/latest)
+![Coverage gate](https://img.shields.io/badge/coverage-%E2%89%A590%25-brightgreen)
+[![License](https://img.shields.io/github/license/kingslayer-ops/multi-agent-incident-lab)](LICENSE)
+
 [中文文档](README.zh-CN.md) · [Architecture](docs/architecture.md) · [Workflow reliability](docs/workflow-reliability.md) · [Observability adapters](docs/observability-adapters.md) · [E2E testing](docs/e2e-testing.md) · [Security](SECURITY.md)
 
 Multi-Agent Incident Lab is a full-stack incident investigation workbench. Eight specialized roles collect telemetry, correlate changes, build evidence-linked hypotheses, review risk, wait for human approval, execute a sandbox remediation, and verify recovery. The API and Worker are separate processes, and every workflow step is checkpointed in SQLite WAL before execution continues.
 
 > This repository is a safe laboratory. It never invokes operating-system, cloud, or Kubernetes commands.
+
+## Product tour
+
+![Multi-Agent Incident Lab showing an evidence-linked diagnosis, durable approval checkpoint, and agent trace](docs/assets/command-center.png)
+
+The deterministic database-pool scenario is paused at its durable approval checkpoint: the browser shows the evidence-linked root cause, confidence, immutable evidence count, Agent trace, and persisted workflow state. The same browser loop is covered by the repository's Playwright suite.
+
+| Durable by design | Human-controlled | Observable and reproducible |
+| --- | --- | --- |
+| Lease claims, heartbeats, checkpoints, stale-worker fencing, retries, cancel, and resume | A final persisted approval is required before the idempotent sandbox remediation | Read-only Prometheus/Loki adapters fall back independently to a deterministic Mock baseline |
+
+## Architecture
+
+![System architecture showing the React command center, FastAPI control plane, SQLite durability boundary, Worker runtime, investigation roles, observability providers, safety policy, approval gate, and sandbox remediation](docs/assets/system-architecture.svg)
+
+The API never waits for an investigation. A Worker claims one runnable step with `BEGIN IMMEDIATE`, records its attempt and event, and commits output only while it still owns the matching lease version. The editable source is available in [`system-architecture.drawio`](docs/assets/system-architecture.drawio).
+
+## Worker crash recovery
+
+![Sequence diagram showing Worker A crashing, its lease expiring, Worker B resuming from a checkpoint, the stale commit being fenced, and the browser replaying missing events](docs/assets/worker-recovery-sequence.svg)
+
+If a process dies, another Worker recovers the expired lease and resumes from the persisted step. A late commit from the stale owner is rejected by owner/version fencing, while `Last-Event-ID` lets the browser replay only missing events. See [workflow reliability](docs/workflow-reliability.md) for guarantees and non-goals; the editable diagram is [`worker-recovery-sequence.drawio`](docs/assets/worker-recovery-sequence.drawio).
 
 ## Highlights
 
@@ -24,24 +51,6 @@ Multi-Agent Incident Lab is a full-stack incident investigation workbench. Eight
 | Evaluation | 12 fault families measure diagnosis accuracy, evidence coverage, safety, and latency |
 | Browser proof | Six Playwright flows cover refresh, approval/rejection, Worker restart, and SSE recovery |
 | Delivery | React/TypeScript, FastAPI, Docker Compose, coverage gate, and GitHub Actions |
-
-## Architecture
-
-```mermaid
-flowchart LR
-    UI["React command center"] --> API["FastAPI API"]
-    API -->|"202 Accepted"| DB[("SQLite WAL")]
-    WORKER["Durable workflow Worker"] -->|"atomic lease claim"| DB
-    WORKER --> AGENTS["8 investigation roles"]
-    PROM["Prometheus"] -. "read-only range query" .-> AGENTS
-    LOKI["Loki"] -. "read-only range query" .-> AGENTS
-    AGENTS --> GATE["Human approval gate"]
-    GATE --> EXEC["Idempotent sandbox remediation"]
-    DB --> SSE["Replayable SSE stream"]
-    SSE --> UI
-```
-
-The API never waits for an investigation. A Worker claims one runnable step with `BEGIN IMMEDIATE`, records its attempt and event, then commits output only while it still owns the matching lease version. If the process dies, another Worker recovers the expired lease and resumes from the persisted step. See [workflow reliability](docs/workflow-reliability.md) for guarantees and non-goals.
 
 ## Quick start
 
@@ -125,7 +134,7 @@ Tests include atomic multi-worker claiming, retry and manual recovery, concurren
 
 ## Scope
 
-This is a portfolio-grade incident-response laboratory, not a production distributed control plane. v1.3.0 can read bounded Prometheus and Loki query results, while Mock telemetry remains the reproducible baseline. SQLite coordination, sandbox-only remediation, and the absence of application authentication/multi-tenancy remain explicit boundaries. Redis/PostgreSQL coordination and remote command execution are outside this release.
+This is a portfolio-grade incident-response laboratory, not a production distributed control plane. v1.3.1 can read bounded Prometheus and Loki query results, while Mock telemetry remains the reproducible baseline. SQLite coordination, sandbox-only remediation, and the absence of application authentication/multi-tenancy remain explicit boundaries. Redis/PostgreSQL coordination and remote command execution are outside this release.
 
 ## License
 
