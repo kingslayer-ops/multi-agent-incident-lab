@@ -7,6 +7,7 @@ services:
       target: runtime
     environment:
       INCIDENT_LAB_LLM_MODE: mock
+      INCIDENT_LAB_TELEMETRY_MODE: mock
       INCIDENT_LAB_DB_PATH: /app/data/e2e.db
       INCIDENT_LAB_LLM_TIMEOUT: "2"
     volumes:
@@ -24,6 +25,7 @@ services:
     command: ["python", "-m", "incident_lab.worker", "--poll-interval", "0.05"]
     environment:
       INCIDENT_LAB_LLM_MODE: mock
+      INCIDENT_LAB_TELEMETRY_MODE: mock
       INCIDENT_LAB_DB_PATH: /app/data/e2e.db
       INCIDENT_LAB_LEASE_SECONDS: "2"
       INCIDENT_LAB_STEP_TIMEOUT_SECONDS: "10"

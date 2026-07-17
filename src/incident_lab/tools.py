@@ -1,21 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Callable
 
-
-@dataclass(frozen=True)
-class ToolResult:
-    source: str
-    summary: str
-    payload: dict[str, Any]
+from .observability import ObservabilityProvider, ScenarioObservabilityProvider, ToolResult
 
 
 class ScenarioToolbox:
-    """Read-only incident tools backed by deterministic demo telemetry."""
+    """Allow-listed incident tools with a pluggable read-only observability source."""
 
-    def __init__(self, scenario: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        scenario: dict[str, Any],
+        observability: ObservabilityProvider | None = None,
+    ) -> None:
         self._scenario = scenario
+        self._observability = observability or ScenarioObservabilityProvider()
         self._tools: dict[str, Callable[[], ToolResult]] = {
             "query_metrics": self.query_metrics,
             "search_logs": self.search_logs,
@@ -32,21 +31,10 @@ class ScenarioToolbox:
         return self._tools[name]()
 
     def query_metrics(self) -> ToolResult:
-        metrics = self._scenario["metrics"]
-        abnormal = [f"{key}={value}" for key, value in metrics.items()]
-        return ToolResult(
-            source="prometheus://demo",
-            summary="Abnormal service indicators: " + ", ".join(abnormal),
-            payload=metrics,
-        )
+        return self._observability.query_metrics(self._scenario)
 
     def search_logs(self) -> ToolResult:
-        logs = self._scenario["logs"]
-        return ToolResult(
-            source="loki://demo",
-            summary=f"Found {len(logs)} correlated error signatures.",
-            payload={"lines": logs},
-        )
+        return self._observability.search_logs(self._scenario)
 
     def list_recent_changes(self) -> ToolResult:
         changes = self._scenario["changes"]

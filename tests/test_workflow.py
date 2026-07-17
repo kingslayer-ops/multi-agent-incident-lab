@@ -12,6 +12,7 @@ import pytest
 
 from incident_lab import __version__
 from incident_lab.models import Incident, IncidentStatus, StepStatus, WorkflowStatus
+from incident_lab.observability import ToolResult
 from incident_lab.scenarios import get_scenario
 from incident_lab.store import SQLiteStore
 from incident_lab.workflow import WorkflowStepExecutor, WorkflowWorker
@@ -55,6 +56,37 @@ def test_workflow_definition_is_versioned_and_uses_stable_keys(tmp_path) -> None
         "safety_review", "wait_approval", "execute_remediation", "verify_recovery",
         "generate_postmortem",
     ]
+
+
+def test_worker_collects_evidence_through_observability_interface(tmp_path) -> None:
+    store = make_store(tmp_path)
+    incident = create_incident(store)
+
+    class RecordingObservability:
+        def query_metrics(self, scenario):
+            return ToolResult("https://prometheus.example/api/v1/query_range", "Live metrics.", {
+                "series": [{"query": "up", "samples": [[1, "1"]]}],
+                "collection": {"mode": "live", "provider": "prometheus"},
+            })
+
+        def search_logs(self, scenario):
+            return ToolResult("https://loki.example/loki/api/v1/query_range", "Live logs.", {
+                "lines": [{"timestamp_ns": "1", "line": "error", "labels": {}}],
+                "collection": {"mode": "live", "provider": "loki"},
+            })
+
+    worker = WorkflowWorker(
+        store,
+        "observability-worker",
+        WorkflowStepExecutor(store, observability=RecordingObservability()),
+    )
+
+    assert worker.drain() == 7
+    current = SQLiteStore(store.path).get_incident(incident.id)
+    evidence = {item.kind: item for item in current.evidence}
+    assert evidence["metric"].source.startswith("https://prometheus.example")
+    assert evidence["metric"].payload["collection"]["mode"] == "live"
+    assert evidence["log"].source.startswith("https://loki.example")
 
 
 def test_atomic_claim_allows_only_one_worker(tmp_path) -> None:

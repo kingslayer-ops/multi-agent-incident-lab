@@ -11,6 +11,8 @@ flowchart TB
     DB --> EVENTS["Ordered workflow events"]
     EVENTS -->|"SSE + Last-Event-ID"| UI
     WORKER --> PROVIDER["Deterministic or compatible LLM provider"]
+    WORKER --> OBS["Mock or live observability provider"]
+    OBS -. "bounded read-only queries" .-> PROM["Prometheus / Loki"]
     WORKER --> POLICY["Deterministic SafetyPolicy"]
     POLICY --> EXEC["Sandbox RemediationExecutor"]
 ```
@@ -19,6 +21,7 @@ flowchart TB
 
 - The API validates requests and commits commands. Incident creation returns `202` after creating a run, its first queued step, and a `run.created` event in one transaction.
 - The worker is the only component that executes investigation steps. Multiple workers may compete safely for work.
+- `ObservabilityProvider` keeps the Agent tool contract stable. Mock telemetry is deterministic; live adapters normalize bounded Prometheus and Loki range queries and can fall back independently with an auditable reason code.
 - `WorkflowStore` owns scheduling and persistence semantics. Its interface is deliberately narrow enough to replace SQLite with PostgreSQL or a Redis-backed queue later.
 - `SQLiteStore` remains the typed incident/evaluation reader. Both stores share the same database and WAL journal.
 
@@ -61,6 +64,6 @@ stateDiagram-v2
 
 ## Safety and reasoning
 
-`IntelligenceProvider` is replaceable and may fail over to deterministic diagnosis. `SafetyPolicy` and approval records do not depend on model output. `RemediationExecutor` accepts only the `incident-lab` simulation namespace and never invokes a system shell.
+`IntelligenceProvider` is replaceable and may fail over to deterministic diagnosis. `ObservabilityProvider` is independently replaceable and never receives remediation capability. `SafetyPolicy` and approval records do not depend on model output. `RemediationExecutor` accepts only the `incident-lab` simulation namespace and never invokes a system shell.
 
 See [workflow reliability](workflow-reliability.md) for lease fencing, transactional events, recovery behavior, and guarantees.

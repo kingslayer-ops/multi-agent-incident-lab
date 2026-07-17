@@ -6,6 +6,7 @@ from typing import Any
 
 from .engine import IncidentEngine
 from .models import Evidence, FallbackEvent, Hypothesis, Incident, IncidentStatus, RemediationAction, RiskLevel, TraceStep, utc_now
+from .observability import ObservabilityProvider, build_observability_provider
 from .policy import SafetyPolicy
 from .provider import IntelligenceProvider, build_provider
 from .scenarios import get_scenario
@@ -17,12 +18,14 @@ class WorkflowStepExecutor:
     """Business-step adapter; durable scheduling stays behind WorkflowStore."""
 
     def __init__(self, store: WorkflowStore, provider: IntelligenceProvider | None = None,
-                 step_delay_seconds: float = 0) -> None:
+                 step_delay_seconds: float = 0,
+                 observability: ObservabilityProvider | None = None) -> None:
         self.store = store
         self.provider = provider or build_provider()
         self.policy = SafetyPolicy()
         self.remediation = RemediationExecutor()
         self.step_delay_seconds = max(0, step_delay_seconds)
+        self.observability = observability or build_observability_provider()
 
     def execute(self, claim: WorkflowClaim) -> tuple[Incident, dict[str, Any], bool]:
         if self.step_delay_seconds:
@@ -54,7 +57,7 @@ class WorkflowStepExecutor:
         if existing:
             return {"evidence_id": existing.id, "deduplicated": True}
         started = perf_counter()
-        result = ScenarioToolbox(scenario).call(tool)
+        result = ScenarioToolbox(scenario, self.observability).call(tool)
         evidence = Evidence(kind=kind, source=result.source, summary=result.summary, payload=result.payload)
         incident.evidence.append(evidence)
         self._trace(incident, agent, result.summary, max(1, int((perf_counter() - started) * 1000)), 52,
