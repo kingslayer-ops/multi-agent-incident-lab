@@ -1,46 +1,42 @@
 # Multi-Agent Incident Lab
 
-**Evidence-driven multi-agent incident response with durable checkpoints, human approval, and reproducible evaluation.**
+**Evidence-driven multi-agent incident response with a durable, crash-recoverable workflow.**
 
-[中文文档](README.zh-CN.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+[中文文档](README.zh-CN.md) · [Architecture](docs/architecture.md) · [Workflow reliability](docs/workflow-reliability.md) · [Security](SECURITY.md)
 
-Multi-Agent Incident Lab is a full-stack incident investigation workbench. Eight specialized roles collect telemetry, correlate changes, build evidence-linked hypotheses, review risk, request human approval, execute a sandbox remediation, and verify recovery. The complete workflow runs offline with deterministic intelligence, or against an OpenAI-compatible model with automatic fallback.
+Multi-Agent Incident Lab is a full-stack incident investigation workbench. Eight specialized roles collect telemetry, correlate changes, build evidence-linked hypotheses, review risk, wait for human approval, execute a sandbox remediation, and verify recovery. The API and worker are separate processes, and every workflow step is checkpointed in SQLite WAL before execution continues.
 
-> Multi-Agent Incident Lab is a safe simulation. It never invokes operating-system, cloud, or Kubernetes commands.
-
-## Why it is different
-
-Most agent demos expose only a final answer. Production incident response also needs provenance, resumable state, bounded tools, approval gates, degradation behavior, and measurable reliability. This project makes those properties visible and testable.
+> This repository is a safe simulation. It never invokes operating-system, cloud, or Kubernetes commands.
 
 ## Highlights
 
 | Area | Implementation |
 | --- | --- |
-| Agent workflow | Triage, metrics, logs, changes, diagnosis, safety, remediation, and verification |
+| Durable workflow | API returns `202`; an independent worker executes ten stable, versioned steps |
+| Crash recovery | Atomic lease claims, heartbeats, attempt history, stale-worker fencing, retries, cancel, and resume |
+| Delivery semantics | At-least-once scheduling with idempotent step commits and remediation keys—not exactly-once execution |
+| Transactional events | State transitions and ordered SSE events commit in the same SQLite transaction |
+| Human control | A final, durable approval record is required before any simulated mutating action |
 | Evidence | Every hypothesis cites immutable metric, log, and change evidence IDs |
-| Durable state | SQLite WAL checkpoints survive API restarts; an in-memory adapter keeps tests isolated |
-| Model fallback | OpenAI-compatible structured output with timeout/error fallback to deterministic diagnosis |
-| Human control | Mutating actions remain blocked until explicit approval; execution is sandbox-only |
-| Observability | Ordered trace with agent, tool, evidence, latency, token estimate, cost, and fallback events |
-| Event stream | SSE replay endpoint for agent steps and incident state |
-| Evaluation | 12 fault families measuring diagnosis accuracy, evidence coverage, unsafe actions, and latency |
-| Delivery | React/TypeScript UI, FastAPI, Docker Compose, 90% coverage gate, and GitHub Actions |
+| Model fallback | OpenAI-compatible structured output degrades to deterministic offline diagnosis |
+| Evaluation | 12 fault families measure diagnosis accuracy, evidence coverage, safety, and latency |
+| Delivery | React/TypeScript, FastAPI, two-service Docker Compose, coverage gate, and GitHub Actions |
 
-## Workflow
+## Architecture
 
 ```mermaid
 flowchart LR
-    UI[React command center] --> API[FastAPI]
-    API --> TRIAGE[Triage]
-    TRIAGE --> OBS[Metrics + logs + changes]
-    OBS --> DIAG[Evidence-linked diagnosis]
-    DIAG --> POLICY[Deterministic safety review]
-    POLICY -->|pause| HUMAN[Human approval]
-    HUMAN --> EXEC[Sandbox remediation]
-    EXEC --> VERIFY[Recovery verification]
-    API --> DB[(SQLite checkpoints)]
-    API --> SSE[SSE event replay]
+    UI["React command center"] --> API["FastAPI API"]
+    API -->|"202 Accepted"| DB[("SQLite WAL")]
+    WORKER["Durable workflow worker"] -->|"atomic lease claim"| DB
+    WORKER --> AGENTS["8 investigation roles"]
+    AGENTS --> GATE["Human approval gate"]
+    GATE --> EXEC["Idempotent sandbox remediation"]
+    DB --> SSE["Replayable SSE stream"]
+    SSE --> UI
 ```
+
+The API never waits for an investigation. A worker claims one runnable step with `BEGIN IMMEDIATE`, records its attempt and event, then commits output only while it still owns the matching lease version. If the process dies, another worker recovers the expired lease and resumes from the persisted step. See [workflow reliability](docs/workflow-reliability.md) for guarantees and non-goals.
 
 ## Quick start
 
@@ -50,19 +46,23 @@ Requirements: Docker with Compose support.
 docker compose up --build
 ```
 
-Open <http://localhost:8000>. API documentation is at <http://localhost:8000/docs>. Runtime data is kept in the named `incident-lab-data` volume.
+Open <http://localhost:8000>; API documentation is at <http://localhost:8000/docs>. Compose starts separate `api` and `worker` services sharing the `incident-lab-data` volume. The default deterministic mode requires no key.
 
-The default `mock` mode requires no API key. To use an OpenAI-compatible endpoint, copy `.env.example`, set `INCIDENT_LAB_LLM_MODE=openai-compatible`, configure the endpoint/model/key, and pass the environment file to Compose. Any timeout, connection error, or invalid structured result is recorded and falls back to the offline provider.
+To use an OpenAI-compatible endpoint, copy `.env.example`, set `INCIDENT_LAB_LLM_MODE=openai-compatible`, and configure the endpoint, model, and key. Provider failures are recorded and fall back without bypassing policy.
 
 ## Local development
 
-Backend (Python 3.11+):
+Backend (Python 3.11+), using two terminals after installation:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 uvicorn incident_lab.api:app --app-dir src --reload
+```
+
+```bash
+python -m incident_lab.worker
 ```
 
 Frontend (Node.js 20+):
@@ -73,32 +73,26 @@ npm ci
 npm run dev
 ```
 
-The Vite development server proxies `/api` and `/health` to port `8000`.
+## Workflow states
 
-## Fault library
-
-The deterministic benchmark covers 12 families: database pool exhaustion, memory leaks, feature-flag regressions, TLS expiry, stale Redis topology, database deadlocks, provider rate limits, incompatible event schemas, service-discovery DNS failure, disk exhaustion, clock skew, and worker-pool saturation.
-
-Ground-truth causes are held by the evaluation layer and are not passed to the intelligence provider. The offline provider diagnoses from telemetry signatures, which prevents answer leakage while keeping CI reproducible.
+`queued → running → retry_scheduled → running` supports transient recovery. The workflow can pause at `waiting_approval`, continue through `resuming`, and terminate as `resolved`, `failed`, or `cancelled`. A running cancellation first becomes `cancel_requested` and stops at the next safe commit boundary.
 
 ## API
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `GET` | `/health` | Runtime health and active provider chain |
-| `GET` | `/api/scenarios` | List controlled fault scenarios |
-| `POST` | `/api/incidents` | Start and checkpoint an investigation |
-| `GET` | `/api/incidents/{id}` | Read evidence, hypotheses, approval state, and trace |
-| `GET` | `/api/incidents/{id}/events` | Replay ordered trace events as SSE |
-| `POST` | `/api/incidents/{id}/approve` | Approve and execute one sandbox action |
+| `POST` | `/api/incidents` | Persist a queued workflow and return `202` |
+| `GET` | `/api/incidents/{id}` | Read the latest durable incident checkpoint |
+| `GET` | `/api/incidents/{id}/workflow` | Inspect run and step metadata |
+| `GET` | `/api/incidents/{id}/events` | Replay SSE events; supports `Last-Event-ID` |
+| `POST` | `/api/incidents/{id}/approve` | Persist the final approval and resume |
+| `POST` | `/api/incidents/{id}/cancel` | Cancel now or request cancellation at a safe boundary |
+| `POST` | `/api/incidents/{id}/retry` | Retry the failed step within the manual limit |
 | `GET` | `/api/incidents/{id}/postmortem` | Export the post-incident report |
-| `POST` | `/api/evaluations/run` | Run the 12-scenario regression benchmark |
-| `GET` | `/api/dashboard` | Read command-center summary metrics |
-
-Example:
+| `POST` | `/api/evaluations/run` | Run the 12-scenario deterministic benchmark |
 
 ```bash
-curl -X POST http://localhost:8000/api/incidents \
+curl -i -X POST http://localhost:8000/api/incidents \
   -H "Content-Type: application/json" \
   -d '{"scenario_id":"payment-pool-exhaustion"}'
 ```
@@ -108,27 +102,15 @@ curl -X POST http://localhost:8000/api/incidents \
 ```bash
 pytest --cov=incident_lab --cov-report=term-missing --cov-fail-under=90
 cd frontend && npm run build
+docker compose config
 docker compose build
 ```
 
-The test suite checks the investigation and approval lifecycle, unsafe-action prevention, all 12 diagnoses, HTTP contracts, SSE replay, model fallback, structured model parsing, and persistence after reopening the database.
+Tests include atomic multi-worker claiming, retry and manual recovery, concurrent approval, transaction rollback, stale-worker fencing, ordered SSE replay, action idempotency, and a real subprocess crash after lease acquisition.
 
-## Repository layout
+## Scope
 
-```text
-multi-agent-incident-lab/
-├── src/incident_lab/   # API, workflow, providers, policies, persistence, tools
-├── tests/              # Unit and HTTP integration tests
-├── frontend/           # React + TypeScript command center
-├── docs/               # Architecture decisions
-├── .github/workflows/  # CI quality gates
-├── Dockerfile
-└── docker-compose.yml
-```
-
-## Security and scope
-
-The executor accepts only the `incident-lab` simulation command namespace and never starts a shell. Model output cannot approve actions or change policy. Read [SECURITY.md](SECURITY.md) before connecting external telemetry, and report vulnerabilities with a private GitHub security advisory.
+This is a portfolio-grade incident-response simulation, not a production distributed control plane. SQLite is intentionally retained for v1.2.0; real Prometheus/Loki adapters, Redis/PostgreSQL coordination, and remote command execution are outside this release.
 
 ## License
 

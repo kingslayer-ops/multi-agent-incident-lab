@@ -5,13 +5,14 @@ from pathlib import Path
 
 from incident_lab import __version__
 from incident_lab.api import create_app
-from incident_lab.store import InMemoryStore
+from incident_lab.store import SQLiteStore
+from incident_lab.workflow_store import WorkflowStore
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_all_runtime_versions_match_project_metadata() -> None:
+def test_all_runtime_versions_match_project_metadata(tmp_path) -> None:
     project_version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
         "project"
     ]["version"]
@@ -19,8 +20,10 @@ def test_all_runtime_versions_match_project_metadata() -> None:
         (ROOT / "frontend" / "package.json").read_text(encoding="utf-8")
     )["version"]
 
-    assert project_version == "1.1.1"
+    assert project_version == "1.2.0"
     assert version("multi-agent-incident-lab") == project_version
     assert __version__ == project_version
-    assert create_app(store=InMemoryStore()).version == project_version
+    database = tmp_path / "versions.db"
+    store = SQLiteStore(database)
+    assert create_app(store=store, workflow_store=WorkflowStore(database, project_version)).version == project_version
     assert frontend_version == project_version

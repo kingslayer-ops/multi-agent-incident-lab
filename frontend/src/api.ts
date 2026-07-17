@@ -12,6 +12,7 @@ export const api = {
   health: () => fetch("/health").then(json<{ status: string; provider: string }>),
   scenarios: () => fetch("/api/scenarios").then(json<Scenario[]>),
   incidents: () => fetch("/api/incidents").then(json<Incident[]>),
+  incident: (incidentId: string) => fetch(`/api/incidents/${incidentId}`).then(json<Incident>),
   dashboard: () => fetch("/api/dashboard").then(json<Dashboard>),
   createIncident: (scenarioId: string) =>
     fetch("/api/incidents", {
@@ -25,6 +26,10 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action_id: actionId, approved_by: "console-operator" })
     }).then(json<Incident>),
+  cancel: (incidentId: string) =>
+    fetch(`/api/incidents/${incidentId}/cancel`, { method: "POST" }).then(json<Incident>),
+  retry: (incidentId: string) =>
+    fetch(`/api/incidents/${incidentId}/retry`, { method: "POST" }).then(json<Incident>),
   evaluate: () => fetch("/api/evaluations/run", { method: "POST" }).then(json<Evaluation>),
   latestEvaluation: () => fetch("/api/evaluations/latest").then(json<Evaluation | null>)
 };

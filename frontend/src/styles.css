@@ -67,8 +67,9 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
 .scenario-card footer { margin-top: auto; padding-top: 20px; font-size: 11px; }
 .scenario-card footer code { color: #9db0c3; }.scenario-card footer span { color: var(--cyan); }
 .status { display: inline-flex; align-items: center; width: fit-content; padding: 5px 8px; border: 1px solid var(--line); color: #aab5c1; font: 9px "IBM Plex Mono"; text-transform: uppercase; white-space: nowrap; }
-.status-sev-1, .status-awaiting-approval { color: var(--amber); border-color: rgba(246,189,96,.35); }
-.status-resolved { color: var(--cyan); border-color: rgba(113,229,209,.35); }
+.status-sev-1, .status-awaiting-approval, .status-retry-scheduled { color: var(--amber); border-color: rgba(246,189,96,.35); }
+.status-resolved, .status-running, .status-resuming { color: var(--cyan); border-color: rgba(113,229,209,.35); }
+.status-failed, .status-cancelled, .status-cancel-requested { color: #ff7b86; border-color: rgba(255,123,134,.35); }
 
 .workspace { display: grid; grid-template-columns: minmax(250px, .72fr) minmax(520px, 2fr); gap: 12px; margin-bottom: 42px; align-items: start; }
 .panel { border: 1px solid var(--line); background: rgba(16,21,29,.82); }
@@ -83,6 +84,7 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
 .empty { padding: 28px 16px; color: var(--muted); font-size: 12px; text-align: center; }.empty.large { padding: 90px; line-height: 1.7; }
 .incident-summary { display: flex; justify-content: space-between; align-items: end; padding: 23px; border-bottom: 1px solid var(--line); background: linear-gradient(110deg, rgba(113,229,209,.045), transparent 55%); }
 .incident-summary h2 { text-transform: capitalize; }.confidence { text-align: right; }.confidence strong, .confidence span { display: block; }.confidence strong { color: var(--cyan); font: 26px "IBM Plex Mono"; }.confidence span { color: var(--muted); font-size: 9px; }
+.workflow-controls { display: flex; justify-content: flex-end; padding: 10px 23px; border-bottom: 1px solid var(--line); }
 .timeline { padding: 7px 22px; }
 .trace-step { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; padding: 15px 0; border-bottom: 1px solid rgba(37,48,61,.7); }
 .step-index { font: 10px "IBM Plex Mono"; color: #526170; padding-top: 3px; }
@@ -107,4 +109,3 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
 @media (max-width: 520px) {
   main { padding: 22px 14px; }h1 { font-size: 36px; }.health-ring { display: none; }.metrics { grid-template-columns: 1fr 1fr; }.metrics article { padding: 15px; }.metrics strong { font-size: 20px; }.incident-summary { align-items: start; gap: 15px; }.incident-summary h2 { font-size: 18px; }.confidence strong { font-size: 20px; }.eval-layout { grid-template-columns: 1fr 1fr; }.page-footer { display: grid; gap: 6px; }
 }
-

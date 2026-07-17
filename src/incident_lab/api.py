@@ -2,25 +2,27 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from .engine import IncidentEngine, dashboard_snapshot
-from .models import ApprovalRequest, CreateIncidentRequest, EvaluationReport, Incident, ScenarioSummary
-from .scenarios import list_scenarios
-from .store import IncidentStore, SQLiteStore
+from .models import ApprovalRequest, CreateIncidentRequest, EvaluationReport, Incident, IncidentStatus, ScenarioSummary, WorkflowStatus
+from .scenarios import get_scenario, list_scenarios
+from .store import SQLiteStore
+from .workflow_store import InvalidTransitionError, TERMINAL, WORKFLOW_VERSION, WorkflowStore
 
 
-def create_app(store: IncidentStore | None = None) -> FastAPI:
+def create_app(store: SQLiteStore | None = None, workflow_store: WorkflowStore | None = None) -> FastAPI:
     app = FastAPI(
         title="Multi-Agent Incident Lab API",
         version=__version__,
-        description="Evidence-driven multi-agent incident response workbench.",
+        description="Durable, evidence-driven multi-agent incident response workbench.",
     )
     app.add_middleware(
         CORSMiddleware,
@@ -29,65 +31,126 @@ def create_app(store: IncidentStore | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    durable_store = store or SQLiteStore(
-        os.getenv("INCIDENT_LAB_DB_PATH", "data/incident-lab.db")
-    )
+    db_path = Path(os.getenv("INCIDENT_LAB_DB_PATH", "data/incident-lab.db"))
+    durable_store = store or SQLiteStore(db_path)
+    workflow = workflow_store or WorkflowStore(durable_store.path, __version__)
     engine = IncidentEngine(store=durable_store)
     app.state.engine = engine
+    app.state.workflow_store = workflow
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "provider": engine.provider.name}
+        return {"status": "ok", "provider": engine.provider.name, "workflow_version": WORKFLOW_VERSION}
 
     @app.get("/api/scenarios", response_model=list[ScenarioSummary])
     def scenarios() -> list[ScenarioSummary]:
         return list_scenarios()
 
-    @app.post("/api/incidents", response_model=Incident, status_code=201)
+    @app.post("/api/incidents", response_model=Incident, status_code=202)
     def create_incident(request: CreateIncidentRequest) -> Incident:
         try:
-            return engine.investigate(request.scenario_id)
+            scenario = get_scenario(request.scenario_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        summary = scenario["summary"]
+        incident = Incident(
+            scenario_id=request.scenario_id,
+            title=summary.title,
+            service=summary.service,
+            severity=summary.severity,
+            symptom=summary.symptom,
+            status=IncidentStatus.QUEUED,
+        )
+        return workflow.create_run(incident)
 
     @app.get("/api/incidents", response_model=list[Incident])
     def incidents() -> list[Incident]:
-        return engine.store.list_incidents()
+        return durable_store.list_incidents()
 
     @app.get("/api/incidents/{incident_id}", response_model=Incident)
     def incident(incident_id: str) -> Incident:
         try:
-            return engine.store.get_incident(incident_id)
+            return durable_store.get_incident(incident_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Incident not found") from exc
 
-    @app.get("/api/incidents/{incident_id}/events")
-    def incident_events(incident_id: str) -> StreamingResponse:
+    @app.get("/api/incidents/{incident_id}/workflow")
+    def workflow_detail(incident_id: str) -> dict[str, object]:
         try:
-            current = engine.store.get_incident(incident_id)
+            run = workflow.get_run_for_incident(incident_id)
+            return {"run": run, "steps": workflow.list_steps(run.id)}
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Workflow not found") from exc
+
+    @app.get("/api/incidents/{incident_id}/events")
+    def incident_events(
+        incident_id: str,
+        last_event_id: int = Header(0, alias="Last-Event-ID"),
+        follow: bool = Query(True),
+    ) -> StreamingResponse:
+        try:
+            run = workflow.get_run_for_incident(incident_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Incident not found") from exc
 
         def stream():
-            for sequence, step in enumerate(current.trace, start=1):
-                payload = json.dumps(
-                    {"sequence": sequence, "type": "agent.step", "data": step.model_dump(mode="json")}
-                )
-                yield f"id: {sequence}\nevent: agent.step\ndata: {payload}\n\n"
-            yield f"event: incident.state\ndata: {json.dumps({'status': current.status})}\n\n"
+            cursor = last_event_id
+            idle_ticks = 0
+            while True:
+                events = workflow.list_events(run.id, cursor)
+                if events:
+                    idle_ticks = 0
+                    for event in events:
+                        cursor = event.id
+                        data = json.dumps({
+                            "run_id": event.workflow_run_id,
+                            "incident_id": event.incident_id,
+                            "step_key": event.step_key,
+                            "sequence": event.sequence_number,
+                            "payload": event.payload,
+                        })
+                        yield f"id: {event.id}\nevent: {event.event_type}\ndata: {data}\n\n"
+                elif not follow:
+                    break
+                else:
+                    idle_ticks += 1
+                    if idle_ticks >= 20:
+                        yield ": heartbeat\n\n"
+                        idle_ticks = 0
+                    time.sleep(0.25)
+                current = workflow.get_run_for_incident(incident_id)
+                if WorkflowStatus(current.status) in TERMINAL and not workflow.list_events(run.id, cursor):
+                    break
 
-        return StreamingResponse(stream(), media_type="text/event-stream")
+        return StreamingResponse(
+            stream(), media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     @app.post("/api/incidents/{incident_id}/approve", response_model=Incident)
     def approve(incident_id: str, request: ApprovalRequest) -> Incident:
         try:
-            return engine.approve_and_execute(incident_id, request.action_id, request.approved_by)
+            return workflow.approve(incident_id, request.action_id, request.approved_by)
         except KeyError as exc:
-            raise HTTPException(status_code=404, detail="Incident or action not found") from exc
-        except ValueError as exc:
+            raise HTTPException(status_code=404, detail="Incident, action, or approval request not found") from exc
+        except InvalidTransitionError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-        except PermissionError as exc:
-            raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    @app.post("/api/incidents/{incident_id}/cancel", response_model=Incident)
+    def cancel(incident_id: str) -> Incident:
+        try:
+            return workflow.cancel(incident_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Incident not found") from exc
+
+    @app.post("/api/incidents/{incident_id}/retry", response_model=Incident)
+    def retry(incident_id: str) -> Incident:
+        try:
+            return workflow.retry(incident_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Incident not found") from exc
+        except InvalidTransitionError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.post("/api/evaluations/run", response_model=EvaluationReport)
     def run_evaluation() -> EvaluationReport:
@@ -95,16 +158,16 @@ def create_app(store: IncidentStore | None = None) -> FastAPI:
 
     @app.get("/api/evaluations/latest", response_model=EvaluationReport | None)
     def latest_evaluation() -> EvaluationReport | None:
-        return engine.store.latest_evaluation()
+        return durable_store.latest_evaluation()
 
     @app.get("/api/dashboard")
     def dashboard() -> dict[str, object]:
-        return dashboard_snapshot(engine.store)
+        return dashboard_snapshot(durable_store)
 
     @app.get("/api/incidents/{incident_id}/postmortem", response_class=PlainTextResponse)
     def postmortem(incident_id: str) -> str:
         try:
-            current = engine.store.get_incident(incident_id)
+            current = durable_store.get_incident(incident_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Incident not found") from exc
         if not current.postmortem:

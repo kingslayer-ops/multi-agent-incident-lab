@@ -39,6 +39,30 @@ function App() {
       .catch((reason: Error) => setError(reason.message));
   }, []);
 
+  useEffect(() => {
+    if (!active || ["resolved", "failed", "cancelled"].includes(active.status)) return;
+    const source = new EventSource(`/api/incidents/${active.id}/events`);
+    const update = async () => {
+      try {
+        const [nextIncident, nextIncidents, nextDashboard] = await Promise.all([
+          api.incident(active.id), api.incidents(), api.dashboard()
+        ]);
+        setActive(nextIncident);
+        setIncidents(nextIncidents);
+        setDashboard(nextDashboard);
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : "Live update failed");
+      }
+    };
+    const eventNames = [
+      "run.created", "step.started", "step.completed", "step.retry_scheduled",
+      "step.lease_expired", "approval.requested", "run.resumed", "run.resolved",
+      "run.failed", "run.cancel_requested", "run.cancelled"
+    ];
+    eventNames.forEach((name) => source.addEventListener(name, update));
+    return () => source.close();
+  }, [active?.id, active?.status]);
+
   const runScenario = async (scenarioId: string) => {
     setLoading(scenarioId);
     setError(null);
@@ -76,6 +100,32 @@ function App() {
       await refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Evaluation failed");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const cancel = async () => {
+    if (!active) return;
+    setLoading("cancel");
+    try {
+      setActive(await api.cancel(active.id));
+      await refresh();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Cancellation failed");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const retry = async () => {
+    if (!active) return;
+    setLoading("retry");
+    try {
+      setActive(await api.retry(active.id));
+      await refresh();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Retry failed");
     } finally {
       setLoading(null);
     }
@@ -157,8 +207,12 @@ function App() {
             {active && (
               <>
                 <div className="incident-summary">
-                  <div><p className="eyebrow">LEADING DIAGNOSIS</p><h2>{active.root_cause}</h2></div>
+                  <div><p className="eyebrow">LEADING DIAGNOSIS</p><h2>{active.root_cause ?? "Investigation queued"}</h2><small>Step: {active.current_step_key ?? "complete"} · retries: {active.retry_count}</small></div>
                   <div className="confidence"><strong>{pct(active.confidence)}</strong><span>confidence</span></div>
+                </div>
+                <div className="workflow-controls">
+                  {!['resolved', 'failed', 'cancelled'].includes(active.status) && <button className="secondary" onClick={cancel} disabled={loading !== null}>Cancel workflow</button>}
+                  {active.status === 'failed' && <button className="secondary" onClick={retry} disabled={loading !== null}>Retry failed step</button>}
                 </div>
                 <div className="timeline">
                   {active.trace.map((step, index) => (

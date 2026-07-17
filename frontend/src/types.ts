@@ -46,6 +46,9 @@ export type Incident = {
   service: string;
   severity: string;
   status: string;
+  workflow_run_id: string | null;
+  current_step_key: string | null;
+  retry_count: number;
   symptom: string;
   created_at: string;
   root_cause: string | null;
