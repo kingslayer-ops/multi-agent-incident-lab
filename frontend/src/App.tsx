@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import type { Dashboard, Evaluation, Incident, Scenario } from "./types";
+import { localizeAction, localizeIncidentTitle, localizePostmortem, localizeRootCause, localizeScenario, localizeTrace, statusLabel, workflowStepLabel } from "./i18n";
 
 const pct = (value: number | null) => (value === null ? "—" : `${Math.round(value * 100)}%`);
 const money = (value: number) => `$${value.toFixed(4)}`;
 const formatPct = (value: number | null) => (value === null ? "—" : pct(value));
 
 function StatusPill({ status }: { status: string }) {
-  return <span className={`status status-${status.replaceAll("_", "-")}`}>{status.replaceAll("_", " ")}</span>;
+  return <span className={`status status-${status.replaceAll("_", "-")}`}>{statusLabel(status)}</span>;
 }
 
 function App() {
@@ -21,7 +22,7 @@ function App() {
   const [provider, setProvider] = useState("initializing");
   const [streamStatus, setStreamStatus] = useState("idle");
   const [workerWaiting, setWorkerWaiting] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("Risk is not acceptable for this incident");
+  const [rejectionReason, setRejectionReason] = useState("当前事故的处置风险不可接受");
   const [postmortem, setPostmortem] = useState<string | null>(null);
   const lastEventIds = useRef(new Map<string, number>());
   const lastProgressAt = useRef(Date.now());
@@ -158,7 +159,7 @@ function App() {
       setPostmortem(null);
       await refresh();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Investigation failed");
+      setError(reason instanceof Error ? reason.message : "调查启动失败");
     } finally {
       setLoading(null);
     }
@@ -173,7 +174,7 @@ function App() {
       setActive(incident);
       await refresh();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Approval failed");
+      setError(reason instanceof Error ? reason.message : "审批失败");
     } finally {
       setLoading(null);
     }
@@ -186,7 +187,7 @@ function App() {
       setEvaluation(await api.evaluate());
       await refresh();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Evaluation failed");
+      setError(reason instanceof Error ? reason.message : "评测运行失败");
     } finally {
       setLoading(null);
     }
@@ -200,7 +201,7 @@ function App() {
       setActive(await api.reject(active.id, active.actions[0].id, rejectionReason.trim()));
       await refresh();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Rejection failed");
+      setError(reason instanceof Error ? reason.message : "拒绝操作失败");
     } finally {
       setLoading(null);
     }
@@ -210,9 +211,10 @@ function App() {
     if (!active) return;
     setLoading("postmortem");
     try {
-      setPostmortem(await api.postmortem(active.id));
+      await api.postmortem(active.id);
+      setPostmortem(localizePostmortem(active));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Postmortem failed");
+      setError(reason instanceof Error ? reason.message : "复盘报告加载失败");
     } finally {
       setLoading(null);
     }
@@ -225,7 +227,7 @@ function App() {
       setActive(await api.cancel(active.id));
       await refresh();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Cancellation failed");
+      setError(reason instanceof Error ? reason.message : "取消工作流失败");
     } finally {
       setLoading(null);
     }
@@ -238,7 +240,7 @@ function App() {
       setActive(await api.retry(active.id));
       await refresh();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Retry failed");
+      setError(reason instanceof Error ? reason.message : "重试失败");
     } finally {
       setLoading(null);
     }
@@ -251,117 +253,123 @@ function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">IL</div>
-          <div><strong>Incident Lab</strong><span>multi-agent response</span></div>
+          <div><strong>事故响应实验室</strong><span>多智能体协同处置</span></div>
         </div>
         <nav>
-          <a className="active" href="#overview"><span>01</span> Command center</a>
-          <a href="#investigations"><span>02</span> Investigations</a>
-          <a href="#evaluation"><span>03</span> Evaluation lab</a>
+          <a className="active" href="#overview"><span>01</span> 指挥中心</a>
+          <a href="#investigations"><span>02</span> 事故调查</a>
+          <a href="#evaluation"><span>03</span> 评测实验室</a>
         </nav>
         <div className="runtime-card">
           <div className="pulse" />
-          <div><strong>Runtime online</strong><span>{provider}</span></div>
+          <div><strong>运行时在线</strong><span>{provider}</span></div>
         </div>
       </aside>
 
       <main>
         <header>
           <div>
-            <p className="eyebrow">COMMAND CENTER / LIVE</p>
-            <h1>Investigate with evidence.<br/><em>Act with control.</em></h1>
+            <p className="eyebrow">指挥中心 / 实时</p>
+            <h1>以证据驱动调查，<br/><em>让处置始终可控。</em></h1>
           </div>
           <div className="health-ring">
             <span>{services}/{dashboard?.services_total ?? 12}</span>
-            <small>services healthy</small>
+            <small>服务运行正常</small>
           </div>
         </header>
 
         {error && <div className="error-banner">{error}</div>}
         <div className={`connection-state connection-${streamStatus}`} data-testid="connection-state">
-          {`Event stream: ${streamStatus}`}
+          {`事件流：${statusLabel(streamStatus)}`}
         </div>
         {workerWaiting && (
           <div className="worker-recovery-state" data-testid="worker-recovery-state">
-            Waiting for worker recovery
+            正在等待 Worker 恢复
           </div>
         )}
 
         <section className="metrics" id="overview">
-          <article><span>INCIDENTS</span><strong>{dashboard?.incidents_total ?? 0}</strong><small>synthetic investigations</small></article>
-          <article><span>AWAITING APPROVAL</span><strong className="amber">{dashboard?.awaiting_approval ?? 0}</strong><small>human control gates</small></article>
-          <article><span>ROOT CAUSE ACCURACY</span><strong className="cyan">{formatPct(dashboard?.root_cause_accuracy ?? null)}</strong><small>latest benchmark</small></article>
-          <article><span>MODEL COST</span><strong>{money(dashboard?.estimated_cost_usd ?? 0)}</strong><small>{dashboard?.total_tokens ?? 0} estimated tokens</small></article>
+          <article><span>事故总数</span><strong>{dashboard?.incidents_total ?? 0}</strong><small>模拟事故调查</small></article>
+          <article><span>等待审批</span><strong className="amber">{dashboard?.awaiting_approval ?? 0}</strong><small>人工控制节点</small></article>
+          <article><span>根因准确率</span><strong className="cyan">{formatPct(dashboard?.root_cause_accuracy ?? null)}</strong><small>最近一次评测</small></article>
+          <article><span>模型成本</span><strong>{money(dashboard?.estimated_cost_usd ?? 0)}</strong><small>预计 {dashboard?.total_tokens ?? 0} Tokens</small></article>
         </section>
 
         <section className="scenario-strip">
           <div className="section-heading">
-            <div><p className="eyebrow">FAULT INJECTION LAB</p><h2>Launch a controlled incident</h2></div>
-            <span className="safe-note">All actions stay inside the sandbox</span>
+            <div><p className="eyebrow">故障注入实验室</p><h2>启动一次受控事故</h2></div>
+            <span className="safe-note">所有动作仅在沙箱内执行</span>
           </div>
           <div className="scenario-grid">
-            {scenarios.map((scenario, index) => (
+            {scenarios.map((rawScenario, index) => {
+              const scenario = localizeScenario(rawScenario);
+              return (
               <button className="scenario-card" data-testid={`scenario-${scenario.id}`} key={scenario.id} onClick={() => runScenario(scenario.id)} disabled={loading !== null}>
                 <div><span className="scenario-number">{String(index + 1).padStart(2, "0")}</span><StatusPill status={scenario.severity.toLowerCase()} /></div>
                 <h3>{scenario.title}</h3>
                 <p>{scenario.symptom}</p>
-                <footer><code>{scenario.service}</code><span>{loading === scenario.id ? "Investigating…" : "Run scenario →"}</span></footer>
+                <footer><code>{scenario.service}</code><span>{loading === scenario.id ? "调查中…" : "运行场景 →"}</span></footer>
               </button>
-            ))}
+              );
+            })}
           </div>
         </section>
 
         <section className="workspace" id="investigations">
           <div className="incident-list panel">
-            <div className="panel-title"><span>RECENT CASES</span><b>{incidents.length}</b></div>
-            {incidents.length === 0 && <div className="empty">Run a scenario to start an investigation.</div>}
+            <div className="panel-title"><span>最近事故</span><b>{incidents.length}</b></div>
+            {incidents.length === 0 && <div className="empty">运行一个故障场景以开始调查。</div>}
             {incidents.map((incident) => (
               <button key={incident.id} data-testid={`incident-${incident.id}`} className={active?.id === incident.id ? "incident-row selected" : "incident-row"} onClick={() => { setActive(incident); setPostmortem(null); }}>
-                <div><strong>{incident.title}</strong><small>{incident.id} · {incident.service}</small></div>
+                <div><strong>{localizeIncidentTitle(incident)}</strong><small>{incident.id} · {incident.service}</small></div>
                 <StatusPill status={incident.status} />
               </button>
             ))}
           </div>
 
           <div className="trace-panel panel">
-            <div className="panel-title"><span>AGENT TRACE</span>{active && <code data-testid="active-incident-id">{active.id}</code>}</div>
-            {!active && <div className="empty large">No active trace.<br/>Select a fault scenario above.</div>}
+            <div className="panel-title"><span>智能体轨迹</span>{active && <code data-testid="active-incident-id">{active.id}</code>}</div>
+            {!active && <div className="empty large">暂无调查轨迹。<br/>请从上方选择一个故障场景。</div>}
             {active && (
               <>
                 <div className="incident-summary" data-testid="incident-summary">
-                  <div><p className="eyebrow">LEADING DIAGNOSIS</p><h2 data-testid="root-cause">{active.root_cause ?? "Investigation queued"}</h2><small>Step: <span data-testid="current-step">{active.current_step_key ?? "complete"}</span> · retries: {active.retry_count} · evidence: <span data-testid="evidence-count">{active.evidence.length}</span></small></div>
-                  <div className="confidence"><strong>{pct(active.confidence)}</strong><span>confidence</span></div>
+                  <div><p className="eyebrow">当前诊断</p><h2 data-testid="root-cause">{localizeRootCause(active.root_cause)}</h2><small>步骤：<span data-testid="current-step">{workflowStepLabel(active.current_step_key)}</span> · 重试：{active.retry_count} · 证据：<span data-testid="evidence-count">{active.evidence.length}</span></small></div>
+                  <div className="confidence"><strong>{pct(active.confidence)}</strong><span>置信度</span></div>
                 </div>
-                <div className="active-status"><StatusPill status={active.status} /><span data-testid="active-status">{active.status}</span></div>
+                <div className="active-status"><StatusPill status={active.status} /><span className="sr-only" data-testid="active-status">{active.status}</span></div>
                 <div className="workflow-controls">
-                  {!['resolved', 'failed', 'cancelled'].includes(active.status) && <button className="secondary" onClick={cancel} disabled={loading !== null}>Cancel workflow</button>}
-                  {active.status === 'failed' && <button className="secondary" onClick={retry} disabled={loading !== null}>Retry failed step</button>}
+                  {!['resolved', 'failed', 'cancelled'].includes(active.status) && <button className="secondary" onClick={cancel} disabled={loading !== null}>取消工作流</button>}
+                  {active.status === 'failed' && <button className="secondary" onClick={retry} disabled={loading !== null}>重试失败步骤</button>}
                 </div>
                 <div className="timeline" data-testid="agent-timeline">
-                  {active.trace.map((step, index) => (
+                  {active.trace.map((step, index) => {
+                    const copy = localizeTrace(step);
+                    return (
                     <div className="trace-step" data-testid="trace-step" data-trace-id={step.id} data-agent={step.agent} key={step.id}>
                       <div className="step-index">{String(index + 1).padStart(2, "0")}</div>
-                      <div><strong>{step.agent}</strong><p>{step.summary}</p>{step.tool && <code>{step.tool}</code>}</div>
+                      <div><strong>{copy.agent}</strong><p>{copy.summary}</p>{step.tool && <code>{step.tool}</code>}</div>
                       <div className="step-meta"><span>{step.duration_ms} ms</span><span>{step.token_estimate} tok</span></div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {active.actions[0] && (
                   <div className={active.actions[0].executed ? "approval resolved" : "approval"} data-testid="approval-card">
                     <div>
-                      <p className="eyebrow">{active.actions[0].executed ? "REMEDIATION COMPLETE" : "HUMAN APPROVAL REQUIRED"}</p>
-                      <h3>{active.actions[0].title}</h3>
-                      <p>{active.actions[0].description}</p>
+                      <p className="eyebrow">{active.actions[0].executed ? "处置已完成" : "需要人工审批"}</p>
+                      <h3>{localizeAction(active.scenario_id, active.actions[0]).title}</h3>
+                      <p>{localizeAction(active.scenario_id, active.actions[0]).description}</p>
                       <code>{active.actions[0].command_preview}</code>
                     </div>
                     {!active.actions[0].executed && active.status === "awaiting_approval" && <div className="approval-actions">
-                      <button data-testid="approve-action" onClick={approve} disabled={loading !== null}>{loading === "approve" ? "Executing…" : "Approve sandbox action"}</button>
-                      <input data-testid="rejection-reason" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} disabled={loading !== null} aria-label="Rejection reason" />
-                      <button data-testid="reject-action" className="danger" onClick={reject} disabled={loading !== null || rejectionReason.trim().length < 3}>{loading === "reject" ? "Rejecting…" : "Reject action"}</button>
+                      <button data-testid="approve-action" onClick={approve} disabled={loading !== null}>{loading === "approve" ? "执行中…" : "批准沙箱处置"}</button>
+                      <input data-testid="rejection-reason" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} disabled={loading !== null} aria-label="拒绝原因" />
+                      <button data-testid="reject-action" className="danger" onClick={reject} disabled={loading !== null || rejectionReason.trim().length < 3}>{loading === "reject" ? "拒绝中…" : "拒绝处置"}</button>
                     </div>}
                   </div>
                 )}
-                {active.approval_rejection_reason && <div className="rejection-result" data-testid="rejection-result">Rejected: {active.approval_rejection_reason}</div>}
-                {active.status === "resolved" && <button className="secondary postmortem-button" data-testid="open-postmortem" onClick={openPostmortem} disabled={loading !== null}>Open postmortem report</button>}
+                {active.approval_rejection_reason && <div className="rejection-result" data-testid="rejection-result">已拒绝：{active.approval_rejection_reason}</div>}
+                {active.status === "resolved" && <button className="secondary postmortem-button" data-testid="open-postmortem" onClick={openPostmortem} disabled={loading !== null}>打开事故复盘报告</button>}
                 {postmortem && <pre className="postmortem-report" data-testid="postmortem-report">{postmortem}</pre>}
               </>
             )}
@@ -370,19 +378,19 @@ function App() {
 
         <section className="evaluation panel" id="evaluation">
           <div className="section-heading">
-            <div><p className="eyebrow">REGRESSION SUITE</p><h2>Agent reliability benchmark</h2></div>
-            <button className="secondary" onClick={runEvaluation} disabled={loading !== null}>{loading === "evaluation" ? "Running…" : "Run all evaluations"}</button>
+            <div><p className="eyebrow">回归测试集</p><h2>智能体可靠性评测</h2></div>
+            <button className="secondary" onClick={runEvaluation} disabled={loading !== null}>{loading === "evaluation" ? "运行中…" : "运行全部评测"}</button>
           </div>
           <div className="eval-layout">
-            <div className="score"><strong>{pct(evaluation?.root_cause_accuracy ?? null)}</strong><span>root cause accuracy</span></div>
-            <div className="eval-stat"><span>Evidence coverage</span><strong>{pct(evaluation?.average_evidence_coverage ?? null)}</strong></div>
-            <div className="eval-stat"><span>Unsafe action rate</span><strong>{pct(evaluation?.unsafe_action_rate ?? null)}</strong></div>
-            <div className="eval-stat"><span>Cases</span><strong>{evaluation?.cases.length ?? 0}/12</strong></div>
+            <div className="score"><strong>{pct(evaluation?.root_cause_accuracy ?? null)}</strong><span>根因准确率</span></div>
+            <div className="eval-stat"><span>证据覆盖率</span><strong>{pct(evaluation?.average_evidence_coverage ?? null)}</strong></div>
+            <div className="eval-stat"><span>不安全操作率</span><strong>{pct(evaluation?.unsafe_action_rate ?? null)}</strong></div>
+            <div className="eval-stat"><span>评测案例</span><strong>{evaluation?.cases.length ?? 0}/12</strong></div>
           </div>
-          {evaluation && <div className="case-table">{evaluation.cases.map(item => <div key={item.scenario_id}><span className={item.correct ? "check" : "fail"}>{item.correct ? "PASS" : "FAIL"}</span><code>{item.scenario_id}</code><span>{item.predicted_root_cause}</span></div>)}</div>}
+          {evaluation && <div className="case-table">{evaluation.cases.map(item => <div key={item.scenario_id}><span className={item.correct ? "check" : "fail"}>{item.correct ? "通过" : "失败"}</span><code>{item.scenario_id}</code><span>{localizeRootCause(item.predicted_root_cause)}</span></div>)}</div>}
         </section>
 
-        <footer className="page-footer"><span>Multi-Agent Incident Lab / deterministic runtime</span><span>Evidence first · approval gated · fully traceable</span></footer>
+        <footer className="page-footer"><span>多智能体事故响应实验室 / 确定性运行时</span><span>证据优先 · 审批控制 · 全程可追踪</span></footer>
       </main>
     </div>
   );

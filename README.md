@@ -17,7 +17,7 @@ Multi-Agent Incident Lab is a full-stack incident investigation workbench. Eight
 
 ![Multi-Agent Incident Lab showing an evidence-linked diagnosis, durable approval checkpoint, and agent trace](docs/assets/command-center.png)
 
-The deterministic database-pool scenario is paused at its durable approval checkpoint: the browser shows the evidence-linked root cause, confidence, immutable evidence count, Agent trace, and persisted workflow state. The same browser loop is covered by the repository's Playwright suite.
+The deterministic order-deadlock scenario is paused at its durable approval checkpoint in the Simplified Chinese console: the browser shows the evidence-linked root cause, confidence, immutable evidence count, Agent trace, and persisted workflow state. The same browser loop is covered by the repository's Playwright suite.
 
 | Durable by design | Human-controlled | Observable and reproducible |
 | --- | --- | --- |
@@ -134,7 +134,7 @@ Tests include atomic multi-worker claiming, retry and manual recovery, concurren
 
 ## Scope
 
-This is a portfolio-grade incident-response laboratory, not a production distributed control plane. v1.3.1 can read bounded Prometheus and Loki query results, while Mock telemetry remains the reproducible baseline. SQLite coordination, sandbox-only remediation, and the absence of application authentication/multi-tenancy remain explicit boundaries. Redis/PostgreSQL coordination and remote command execution are outside this release.
+This is a portfolio-grade incident-response laboratory, not a production distributed control plane. v1.3.2 provides a complete Simplified Chinese operator interface and can read bounded Prometheus and Loki query results, while Mock telemetry remains the reproducible baseline. SQLite coordination, sandbox-only remediation, and the absence of application authentication/multi-tenancy remain explicit boundaries. Redis/PostgreSQL coordination and remote command execution are outside this release.
 
 ## License
 

@@ -14,6 +14,7 @@
 }
 
 * { box-sizing: border-box; }
+.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 75% -10%, #12202a 0, transparent 28%), #080b10; }
 button { font: inherit; }
@@ -88,7 +89,7 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
 .incident-summary { display: flex; justify-content: space-between; align-items: end; padding: 23px; border-bottom: 1px solid var(--line); background: linear-gradient(110deg, rgba(113,229,209,.045), transparent 55%); }
 .incident-summary h2 { text-transform: capitalize; }.confidence { text-align: right; }.confidence strong, .confidence span { display: block; }.confidence strong { color: var(--cyan); font: 26px "IBM Plex Mono"; }.confidence span { color: var(--muted); font-size: 9px; }
 .workflow-controls { display: flex; justify-content: flex-end; padding: 10px 23px; border-bottom: 1px solid var(--line); }
-.active-status { display: flex; align-items: center; gap: 10px; padding: 10px 23px; border-bottom: 1px solid var(--line); }.active-status > span:last-child { color: var(--muted); font: 9px "IBM Plex Mono"; }
+.active-status { display: flex; align-items: center; gap: 10px; padding: 10px 23px; border-bottom: 1px solid var(--line); }
 .timeline { padding: 7px 22px; }
 .trace-step { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; padding: 15px 0; border-bottom: 1px solid rgba(37,48,61,.7); }
 .step-index { font: 10px "IBM Plex Mono"; color: #526170; padding-top: 3px; }
