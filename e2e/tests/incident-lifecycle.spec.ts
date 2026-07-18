@@ -51,11 +51,11 @@ test("@smoke complete browser incident response loop", async ({ page, networkLog
   await expect(page.getByTestId("trace-step").first()).toBeVisible();
   await waitForApproval(page);
   await expect(page.getByTestId("evidence-count")).toHaveText("3");
-  await expect(page.getByTestId("root-cause")).not.toHaveText("Investigation queued");
+  await expect(page.getByTestId("root-cause")).not.toHaveText("调查已进入队列");
   await approveAndResolve(page);
   await expect(page.locator('[data-agent="Remediation Agent"]')).toHaveCount(1);
   await page.getByTestId("open-postmortem").click();
-  await expect(page.getByTestId("postmortem-report")).toContainText("Root cause");
+  await expect(page.getByTestId("postmortem-report")).toContainText("根因");
 });
 
 test("refresh restores durable progress without duplicate steps", async ({ page, networkLog: _networkLog }) => {
@@ -103,8 +103,8 @@ test("@resilience worker restart recovers the browser workflow", async ({ page, 
   const before = await traceIds(page);
   compose("kill", "worker");
   try {
-    await expect(page.getByTestId("connection-state")).toHaveText("Event stream: live");
-    await expect(page.getByTestId("worker-recovery-state")).toHaveText("Waiting for worker recovery");
+    await expect(page.getByTestId("connection-state")).toHaveText("事件流：实时");
+    await expect(page.getByTestId("worker-recovery-state")).toHaveText("正在等待 Worker 恢复");
     compose("start", "worker");
     await waitForApproval(page);
     const recovered = await traceIds(page);
@@ -124,7 +124,7 @@ test("@resilience SSE reconnect replays missed progress once", async ({ page, re
   await expect.poll(() => incidentTraceCount(request, incidentId)).toBeGreaterThan(before);
   const durableCount = await incidentTraceCount(request, incidentId);
   await context.setOffline(false);
-  await expect(page.getByTestId("connection-state")).toContainText(/live|complete/);
+  await expect(page.getByTestId("connection-state")).toContainText(/实时|已结束/);
   await expect.poll(() => page.getByTestId("trace-step").count()).toBeGreaterThanOrEqual(durableCount);
   await waitForApproval(page);
   const replayed = await traceIds(page);
