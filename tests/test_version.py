@@ -23,7 +23,7 @@ def test_all_runtime_versions_match_project_metadata(tmp_path) -> None:
         (ROOT / "e2e" / "package.json").read_text(encoding="utf-8")
     )["version"]
 
-    assert project_version == "1.3.2"
+    assert project_version == "1.4.0"
     assert version("multi-agent-incident-lab") == project_version
     assert __version__ == project_version
     database = tmp_path / "versions.db"

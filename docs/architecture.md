@@ -24,8 +24,9 @@ flowchart TB
 - The API validates requests and commits commands. Incident creation returns `202` after creating a run, its first queued step, and a `run.created` event in one transaction.
 - The worker is the only component that executes investigation steps. Multiple workers may compete safely for work.
 - `ObservabilityProvider` keeps the Agent tool contract stable. Mock telemetry is deterministic; live adapters normalize bounded Prometheus and Loki range queries and can fall back independently with an auditable reason code.
-- `WorkflowStore` owns scheduling and persistence semantics. Its interface is deliberately narrow enough to replace SQLite with PostgreSQL or a Redis-backed queue later.
-- `SQLiteStore` remains the typed incident/evaluation reader. Both stores share the same database and WAL journal.
+- `WorkflowStore` owns scheduling and persistence semantics. The default adapter uses SQLite WAL; the production adapter maps the same boundary to PostgreSQL row locking.
+- The incident/evaluation reader and workflow store always share one durable backend. Redis carries bounded wake-up hints only and is never the queue or source of truth.
+- The diagram above shows the zero-dependency SQLite profile. See [PostgreSQL and Redis runtime](production-runtime.md) for the v1.4 multi-Worker deployment.
 
 ## Versioned workflow
 

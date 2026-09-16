@@ -1,0 +1,61 @@
+name: multi-agent-incident-lab-production
+
+x-app: &app
+  build: .
+  environment:
+    INCIDENT_LAB_DATABASE_URL: postgresql://incident_lab:${INCIDENT_LAB_POSTGRES_PASSWORD:-incident_lab}@postgres:5432/incident_lab
+    INCIDENT_LAB_REDIS_URL: redis://redis:6379/0
+    INCIDENT_LAB_LLM_MODE: ${INCIDENT_LAB_LLM_MODE:-mock}
+    INCIDENT_LAB_TELEMETRY_MODE: ${INCIDENT_LAB_TELEMETRY_MODE:-mock}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: incident_lab
+      POSTGRES_USER: incident_lab
+      POSTGRES_PASSWORD: ${INCIDENT_LAB_POSTGRES_PASSWORD:-incident_lab}
+    volumes:
+      - incident-lab-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U incident_lab -d incident_lab"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - incident-lab-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    <<: *app
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    <<: *app
+    command: ["python", "-m", "incident_lab.worker"]
+    deploy:
+      replicas: 2
+
+volumes:
+  incident-lab-postgres:
+  incident-lab-redis:

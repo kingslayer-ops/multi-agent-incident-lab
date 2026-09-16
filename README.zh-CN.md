@@ -7,9 +7,9 @@
 ![覆盖率门槛](https://img.shields.io/badge/coverage-%E2%89%A590%25-brightgreen)
 [![License](https://img.shields.io/github/license/kingslayer-ops/multi-agent-incident-lab)](LICENSE)
 
-[English](README.md) · [架构说明](docs/architecture.md) · [工作流可靠性](docs/workflow-reliability.md) · [可观测性适配器](docs/observability-adapters.md) · [端到端测试](docs/e2e-testing.md) · [安全策略](SECURITY.md)
+[English](README.md) · [架构说明](docs/architecture.md) · [生产运行时](docs/production-runtime.md) · [工作流可靠性](docs/workflow-reliability.md) · [可观测性适配器](docs/observability-adapters.md) · [端到端测试](docs/e2e-testing.md) · [安全策略](SECURITY.md)
 
-项目由 8 个职责明确的角色协作完成故障分级、指标分析、日志检索、变更关联、根因判断、安全审查、沙箱修复和恢复验证。API 与 Worker 独立运行，十个稳定步骤全部持久化到 SQLite WAL；Worker 崩溃后可以通过租约和检查点继续执行。
+项目由 8 个职责明确的角色协作完成故障分级、指标分析、日志检索、变更关联、根因判断、安全审查、沙箱修复和恢复验证。API 与 Worker 独立运行，十个稳定步骤持久化到 SQLite WAL 或 PostgreSQL；Worker 崩溃后可以通过租约和检查点继续执行。
 
 > 本仓库是安全实验平台。它不会执行操作系统、云平台或 Kubernetes 命令。
 
@@ -27,7 +27,7 @@
 
 ![系统架构图：React 控制台、FastAPI 控制面、SQLite 持久化边界、Worker、调查角色、可观测性数据源、安全策略、人工审批和沙箱修复](docs/assets/system-architecture.svg)
 
-API 不会同步等待调查完成。Worker 使用 `BEGIN IMMEDIATE` 原子领取一个可运行步骤，记录尝试和事件，并且只有在仍持有匹配的租约版本时才能提交输出。可编辑源文件见 [`system-architecture.drawio`](docs/assets/system-architecture.drawio)。
+API 不会同步等待调查完成。默认配置使用 SQLite `BEGIN IMMEDIATE`，生产配置使用 PostgreSQL `FOR UPDATE SKIP LOCKED` 与 Redis 唤醒提示；Worker 只有在仍持有匹配的租约版本时才能提交输出。架构图展示默认配置，多 Worker 部署见[生产运行时说明](docs/production-runtime.md)。
 
 ## Worker 崩溃恢复
 
@@ -35,7 +35,15 @@ API 不会同步等待调查完成。Worker 使用 `BEGIN IMMEDIATE` 原子领�
 
 Worker 进程崩溃后，其他 Worker 会回收过期租约并从持久化步骤继续；旧 Worker 的迟到提交会被 owner/version fencing 拒绝。浏览器使用 `Last-Event-ID` 只补发断线期间缺失的事件。详细保证见[工作流可靠性说明](docs/workflow-reliability.md)，可编辑源文件见 [`worker-recovery-sequence.drawio`](docs/assets/worker-recovery-sequence.drawio)。
 
-## v1.3 核心能力
+## v1.4 核心能力
+
+- 新增 PostgreSQL 持久化后端，覆盖事故、运行、步骤、租约、尝试、审批、幂等修复和有序事件。
+- 多 Worker 通过 `FOR UPDATE SKIP LOCKED` 竞争领取，过期租约恢复和事件序号分配具备并发保护。
+- Redis 只传递有界唤醒提示，不承载任务真相；Redis 不可用时自动回退 PostgreSQL 轮询，不丢失已提交任务。
+- 保留 SQLite WAL 零依赖模式，继续作为本地演示与 Playwright 稳定回归基线。
+- CI 使用真实 PostgreSQL 服务验证四 Worker 竞争时仅有一个领取成功，并校验生产 Compose。
+
+以下 v1.3 的真实可观测性能力继续保留：
 
 - 保留确定性 Mock 指标和日志，作为离线演示、评测与 Playwright 回归基线。
 - 新增只读 Prometheus `/api/v1/query_range` 适配器，支持自定义具名 PromQL、查询窗口、步长和序列上限。
@@ -50,7 +58,7 @@ Worker 进程崩溃后，其他 Worker 会回收过期租约并从持久化步�
 ## 工作流可靠性
 
 - `POST /api/incidents` 只创建任务并返回 `202 Accepted`。
-- Worker 使用 SQLite `BEGIN IMMEDIATE` 原子领取步骤，记录租约、心跳、版本和每次尝试。
+- Worker 在 SQLite 中使用 `BEGIN IMMEDIATE`、在 PostgreSQL 中使用 `FOR UPDATE SKIP LOCKED` 原子领取步骤，记录租约、心跳、版本和每次尝试。
 - Worker 崩溃后，其他 Worker 可以回收过期租约并从当前步骤继续；旧 Worker 的迟到提交会被拒绝。
 - 状态更新与 SSE 事件在同一事务提交，SSE 支持事件游标、断线补发和去重。
 - 人工审批是唯一、最终且持久化的决定；沙箱修复使用幂等键抑制重复执行。
@@ -71,6 +79,14 @@ docker compose up --build
 ```
 
 访问 <http://localhost:8000>，API 文档位于 <http://localhost:8000/docs>。默认模式无需模型密钥或可观测性服务。
+
+使用 PostgreSQL、Redis 和两个 Worker 的生产式配置：
+
+```bash
+docker compose -f docker-compose.production.yml up --build --scale worker=2
+```
+
+PostgreSQL 是唯一事实源，Redis 仅用于降低唤醒延迟；详细并发保证和失败语义见[生产运行时说明](docs/production-runtime.md)。
 
 启用真实数据源：
 
@@ -101,6 +117,7 @@ python -m incident_lab.worker
 pytest --cov=incident_lab --cov-report=term-missing --cov-fail-under=90
 cd frontend && npm run build
 docker compose config
+docker compose -f docker-compose.production.yml config
 make e2e
 ```
 
@@ -108,7 +125,7 @@ make e2e
 
 ## 项目边界
 
-这是作品集级事故响应实验平台，不是真实生产级分布式控制平面。v1.3.2 提供完整的简体中文操作界面，并能读取有界的 Prometheus/Loki 查询结果；系统仍使用 SQLite 协调和沙箱修复，也没有应用认证、多租户业务边界或远程命令执行。Mock 数据源继续作为稳定、可复现的演示基线。
+这是作品集级事故响应实验平台，不是真实生产级分布式控制平面。v1.4.0 新增可选的 PostgreSQL/Redis 多 Worker 运行时，同时保留 SQLite 与 Mock 数据源作为稳定、可复现的演示基线。系统仍只执行沙箱修复，也没有应用认证、多租户业务边界或远程命令执行。
 
 ## 许可证
 

@@ -6,18 +6,23 @@ import socket
 import time
 from uuid import uuid4
 
-from . import __version__
+from .runtime import build_notifier, build_runtime_stores
 from .workflow import WorkflowStepExecutor, WorkflowWorker
-from .workflow_store import WorkflowStore
 
 
 def main() -> None:  # pragma: no cover - exercised as a real subprocess integration
     parser = argparse.ArgumentParser(description="Run the durable incident workflow worker")
     parser.add_argument("--once", action="store_true", help="Claim at most one runnable step")
     parser.add_argument("--crash-after-claim", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--poll-interval", type=float, default=0.25)
+    parser.add_argument(
+        "--poll-interval",
+        type=float,
+        default=float(os.getenv("INCIDENT_LAB_WORK_POLL_SECONDS", "0.25")),
+    )
     args = parser.parse_args()
-    store = WorkflowStore(os.getenv("INCIDENT_LAB_DB_PATH", "data/incident-lab.db"), __version__)
+    runtime = build_runtime_stores()
+    store = runtime.workflow
+    notifier = build_notifier()
     worker_id = os.getenv("INCIDENT_LAB_WORKER_ID", f"{socket.gethostname()}-{uuid4().hex[:6]}")
     lease_seconds = float(os.getenv("INCIDENT_LAB_LEASE_SECONDS", "30"))
     timeout_seconds = float(os.getenv("INCIDENT_LAB_STEP_TIMEOUT_SECONDS", "20"))
@@ -41,7 +46,10 @@ def main() -> None:  # pragma: no cover - exercised as a real subprocess integra
         return
     while True:
         if not worker.run_once():
-            time.sleep(args.poll_interval)
+            try:
+                notifier.wait(args.poll_interval)
+            except Exception:
+                time.sleep(args.poll_interval)
 
 
 if __name__ == "__main__":  # pragma: no cover

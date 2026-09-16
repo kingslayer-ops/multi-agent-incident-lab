@@ -23,6 +23,43 @@ jobs:
             exit 1
           fi
 
+  production-runtime:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: incident_lab_test
+          POSTGRES_USER: incident_lab
+          POSTGRES_PASSWORD: incident_lab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U incident_lab -d incident_lab_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      INCIDENT_LAB_TEST_POSTGRES_URL: postgresql://incident_lab:incident_lab@localhost:5432/incident_lab_test
+      INCIDENT_LAB_TEST_REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/test_postgres_integration.py tests/test_redis_integration.py
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -43,6 +80,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: docker compose config -q
+      - run: docker compose -f docker-compose.production.yml config -q
+      - run: docker compose -f docker-compose.integration.yml config -q
       - uses: docker/setup-buildx-action@v4
       - uses: docker/build-push-action@v7
         with:

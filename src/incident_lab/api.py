@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from pathlib import Path
 
@@ -14,11 +13,16 @@ from . import __version__
 from .engine import IncidentEngine, dashboard_snapshot
 from .models import ApprovalRequest, CreateIncidentRequest, EvaluationReport, Incident, IncidentStatus, RejectionRequest, ScenarioSummary, WorkflowStatus
 from .scenarios import get_scenario, list_scenarios
-from .store import SQLiteStore
+from .runtime import WorkNotifier, build_notifier, build_runtime_stores
+from .store import IncidentStore
 from .workflow_store import InvalidTransitionError, TERMINAL, WORKFLOW_VERSION, WorkflowStore
 
 
-def create_app(store: SQLiteStore | None = None, workflow_store: WorkflowStore | None = None) -> FastAPI:
+def create_app(
+    store: IncidentStore | None = None,
+    workflow_store: WorkflowStore | None = None,
+    notifier: WorkNotifier | None = None,
+) -> FastAPI:
     app = FastAPI(
         title="Multi-Agent Incident Lab API",
         version=__version__,
@@ -31,16 +35,37 @@ def create_app(store: SQLiteStore | None = None, workflow_store: WorkflowStore |
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    db_path = Path(os.getenv("INCIDENT_LAB_DB_PATH", "data/incident-lab.db"))
-    durable_store = store or SQLiteStore(db_path)
-    workflow = workflow_store or WorkflowStore(durable_store.path, __version__)
+    if store is None and workflow_store is None:
+        runtime = build_runtime_stores()
+        durable_store = runtime.incidents
+        workflow = runtime.workflow
+        storage_backend = runtime.backend
+    elif store is not None and workflow_store is not None:
+        durable_store = store
+        workflow = workflow_store
+        storage_backend = "injected"
+    else:
+        raise ValueError("store and workflow_store must be injected together")
+    work_notifier = notifier or build_notifier()
     engine = IncidentEngine(store=durable_store)
     app.state.engine = engine
     app.state.workflow_store = workflow
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "provider": engine.provider.name, "workflow_version": WORKFLOW_VERSION}
+        return {
+            "status": "ok",
+            "provider": engine.provider.name,
+            "workflow_version": WORKFLOW_VERSION,
+            "storage": storage_backend,
+            "notifier": work_notifier.name,
+        }
+
+    def notify_worker() -> None:
+        try:
+            work_notifier.notify()
+        except Exception:  # Redis is a wake-up optimization; PostgreSQL remains the source of truth.
+            return None
 
     @app.get("/api/scenarios", response_model=list[ScenarioSummary])
     def scenarios() -> list[ScenarioSummary]:
@@ -61,7 +86,9 @@ def create_app(store: SQLiteStore | None = None, workflow_store: WorkflowStore |
             symptom=summary.symptom,
             status=IncidentStatus.QUEUED,
         )
-        return workflow.create_run(incident)
+        created = workflow.create_run(incident)
+        notify_worker()
+        return created
 
     @app.get("/api/incidents", response_model=list[Incident])
     def incidents() -> list[Incident]:
@@ -131,7 +158,9 @@ def create_app(store: SQLiteStore | None = None, workflow_store: WorkflowStore |
     @app.post("/api/incidents/{incident_id}/approve", response_model=Incident)
     def approve(incident_id: str, request: ApprovalRequest) -> Incident:
         try:
-            return workflow.approve(incident_id, request.action_id, request.approved_by)
+            approved = workflow.approve(incident_id, request.action_id, request.approved_by)
+            notify_worker()
+            return approved
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Incident, action, or approval request not found") from exc
         except InvalidTransitionError as exc:
@@ -158,7 +187,9 @@ def create_app(store: SQLiteStore | None = None, workflow_store: WorkflowStore |
     @app.post("/api/incidents/{incident_id}/retry", response_model=Incident)
     def retry(incident_id: str) -> Incident:
         try:
-            return workflow.retry(incident_id)
+            retried = workflow.retry(incident_id)
+            notify_worker()
+            return retried
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Incident not found") from exc
         except InvalidTransitionError as exc:

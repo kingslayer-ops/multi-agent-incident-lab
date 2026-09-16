@@ -7,9 +7,9 @@
 ![Coverage gate](https://img.shields.io/badge/coverage-%E2%89%A590%25-brightgreen)
 [![License](https://img.shields.io/github/license/kingslayer-ops/multi-agent-incident-lab)](LICENSE)
 
-[中文文档](README.zh-CN.md) · [Architecture](docs/architecture.md) · [Workflow reliability](docs/workflow-reliability.md) · [Observability adapters](docs/observability-adapters.md) · [E2E testing](docs/e2e-testing.md) · [Security](SECURITY.md)
+[中文文档](README.zh-CN.md) · [Architecture](docs/architecture.md) · [Production runtime](docs/production-runtime.md) · [Workflow reliability](docs/workflow-reliability.md) · [Observability adapters](docs/observability-adapters.md) · [E2E testing](docs/e2e-testing.md) · [Security](SECURITY.md)
 
-Multi-Agent Incident Lab is a full-stack incident investigation workbench. Eight specialized roles collect telemetry, correlate changes, build evidence-linked hypotheses, review risk, wait for human approval, execute a sandbox remediation, and verify recovery. The API and Worker are separate processes, and every workflow step is checkpointed in SQLite WAL before execution continues.
+Multi-Agent Incident Lab is a full-stack incident investigation workbench. Eight specialized roles collect telemetry, correlate changes, build evidence-linked hypotheses, review risk, wait for human approval, execute a sandbox remediation, and verify recovery. The API and Workers are separate processes; every workflow step is checkpointed in SQLite WAL or PostgreSQL before execution continues.
 
 > This repository is a safe laboratory. It never invokes operating-system, cloud, or Kubernetes commands.
 
@@ -27,7 +27,7 @@ The deterministic order-deadlock scenario is paused at its durable approval chec
 
 ![System architecture showing the React command center, FastAPI control plane, SQLite durability boundary, Worker runtime, investigation roles, observability providers, safety policy, approval gate, and sandbox remediation](docs/assets/system-architecture.svg)
 
-The API never waits for an investigation. A Worker claims one runnable step with `BEGIN IMMEDIATE`, records its attempt and event, and commits output only while it still owns the matching lease version. The editable source is available in [`system-architecture.drawio`](docs/assets/system-architecture.drawio).
+The API never waits for an investigation. The default profile uses SQLite `BEGIN IMMEDIATE`; the production profile uses PostgreSQL `FOR UPDATE SKIP LOCKED` and Redis wake-up hints. A Worker commits output only while it still owns the matching lease version. The diagram shows the default profile; see [production runtime](docs/production-runtime.md) for the multi-Worker deployment.
 
 ## Worker crash recovery
 
@@ -42,7 +42,8 @@ If a process dies, another Worker recovers the expired lease and resumes from th
 | Durable workflow | API returns `202`; an independent Worker executes ten stable, versioned steps |
 | Crash recovery | Atomic lease claims, heartbeats, attempt history, stale-worker fencing, retries, cancel, and resume |
 | Delivery semantics | At-least-once scheduling with idempotent step commits and remediation keys—not exactly-once execution |
-| Transactional events | State transitions and ordered SSE events commit in the same SQLite transaction |
+| Transactional events | State transitions and ordered SSE events commit in the same SQLite/PostgreSQL transaction |
+| Multi-Worker runtime | PostgreSQL row-level claims plus Redis wake-up hints; database polling remains the lossless fallback |
 | Human control | A final, durable approval record is required before any simulated mutating action |
 | Evidence | Every hypothesis cites immutable metric, log, and change evidence IDs |
 | Live telemetry | Read-only Prometheus and Loki range-query adapters with bounded queries and normalized evidence |
@@ -71,6 +72,14 @@ INCIDENT_LAB_TELEMETRY_MODE=live
 INCIDENT_LAB_PROMETHEUS_URL=https://prometheus.example.com
 INCIDENT_LAB_LOKI_URL=https://loki.example.com
 ```
+
+For the PostgreSQL/Redis multi-Worker profile:
+
+```bash
+docker compose -f docker-compose.production.yml up --build --scale worker=2
+```
+
+PostgreSQL is the durable source of truth; Redis only reduces wake-up latency and can fail without losing queued work. See [production runtime](docs/production-runtime.md).
 
 ## Local development
 
@@ -126,6 +135,7 @@ curl -i -X POST http://localhost:8000/api/incidents \
 pytest --cov=incident_lab --cov-report=term-missing --cov-fail-under=90
 cd frontend && npm run build
 docker compose config
+docker compose -f docker-compose.production.yml config
 docker compose build
 make e2e
 ```
@@ -134,7 +144,7 @@ Tests include atomic multi-worker claiming, retry and manual recovery, concurren
 
 ## Scope
 
-This is a portfolio-grade incident-response laboratory, not a production distributed control plane. v1.3.2 provides a complete Simplified Chinese operator interface and can read bounded Prometheus and Loki query results, while Mock telemetry remains the reproducible baseline. SQLite coordination, sandbox-only remediation, and the absence of application authentication/multi-tenancy remain explicit boundaries. Redis/PostgreSQL coordination and remote command execution are outside this release.
+This is a portfolio-grade incident-response laboratory, not a production distributed control plane. v1.4.0 adds an optional PostgreSQL/Redis multi-Worker runtime while preserving SQLite and Mock providers as the reproducible baseline. Sandboxed remediation and the absence of application authentication, multi-tenancy, and remote command execution remain explicit boundaries.
 
 ## License
 
