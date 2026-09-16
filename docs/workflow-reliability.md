@@ -25,7 +25,7 @@ The test suite launches a real Python worker subprocess in a crash-after-claim m
 
 ## Transactions and events
 
-State changes, incident JSON checkpoints, and workflow events share one SQLite transaction. Event sequence numbers are monotonically increasing per run. A forced event-insert failure is tested to prove the corresponding step completion rolls back.
+State changes, incident JSON checkpoints, and workflow events share one SQLite or PostgreSQL transaction. Event sequence numbers are monotonically increasing per run. A forced event-insert failure is tested to prove the corresponding step completion rolls back.
 
 The SSE endpoint reads this durable log. Browsers reconnect with `Last-Event-ID`; the API replays only later events and sends heartbeat comments while idle.
 
@@ -41,11 +41,15 @@ Transient failures use bounded exponential backoff. Exhausted steps terminate th
 
 SQLite runs in WAL mode with a busy timeout. `BEGIN IMMEDIATE` serializes the short claim/transition transactions; agent and model work happens outside the database transaction. This is suitable for the repository's single-host lab scope.
 
-The orchestration boundary does not expose SQLite to agents or API routes. A future production adapter can map the same operations to PostgreSQL row locking and a distributed queue without changing step business logic.
+The orchestration boundary does not expose a database to agents or API routes. The v1.4 production adapter maps the same operations to PostgreSQL row locking without changing step business logic. Redis is only a wake-up optimization; durable runnable work remains in PostgreSQL.
+
+## PostgreSQL concurrency model
+
+The production profile claims rows with `FOR UPDATE SKIP LOCKED`, fences stale commits with the same owner/version checks, locks expired leases during recovery, and allocates event sequence numbers under a per-run advisory lock. Multiple Worker replicas can therefore make progress without treating Redis delivery as durable scheduling.
 
 ## Current boundaries
 
-- Redis, Celery, Kafka, or PostgreSQL coordination
+- Celery, Kafka, or Redis-backed durable queue semantics
 - Prometheus/Loki writes, alert management, or unbounded queries; v1.3 provides bounded read-only range-query adapters
 - remote shell, Kubernetes, or cloud mutations
 - exactly-once external side effects

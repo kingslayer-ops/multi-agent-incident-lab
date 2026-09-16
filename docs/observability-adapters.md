@@ -100,4 +100,4 @@ Secrets and endpoint URLs are not copied into error messages. Set `INCIDENT_LAB_
 
 Contract tests run against an in-process HTTP server and verify paths, encoded query parameters, authentication headers, response normalization, error classification, and fallback metadata. The deterministic E2E environment explicitly sets telemetry mode to `mock`, so CI does not depend on external observability infrastructure.
 
-The adapters are read-only. v1.3.0 does not add remote remediation, Redis/PostgreSQL coordination, authentication for the Incident Lab UI, or a production deployment claim.
+The adapters are read-only. v1.4 adds optional PostgreSQL coordination and Redis wake-up hints, but does not add remote remediation, UI authentication, multi-tenancy, or a production deployment claim.

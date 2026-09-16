@@ -57,6 +57,43 @@ def test_invalid_scenario_returns_404(tmp_path) -> None:
     assert client.post("/api/incidents", json={"scenario_id": "does-not-exist"}).status_code == 404
 
 
+def test_create_publishes_worker_wakeup(tmp_path) -> None:
+    class RecordingNotifier:
+        name = "recording"
+        calls = 0
+
+        def notify(self) -> None:
+            self.calls += 1
+
+        def wait(self, timeout_seconds: float) -> None:
+            return None
+
+    database = tmp_path / "notify.db"
+    notifier = RecordingNotifier()
+    client = TestClient(create_app(SQLiteStore(database), WorkflowStore(database, __version__), notifier))
+    assert client.get("/health").json()["notifier"] == "recording"
+    assert client.post("/api/incidents", json={"scenario_id": "auth-clock-skew"}).status_code == 202
+    assert notifier.calls == 1
+
+
+def test_redis_wakeup_failure_does_not_lose_committed_work(tmp_path) -> None:
+    class FailingNotifier:
+        name = "redis"
+
+        def notify(self) -> None:
+            raise ConnectionError("redis unavailable")
+
+        def wait(self, timeout_seconds: float) -> None:
+            return None
+
+    database = tmp_path / "notify-failure.db"
+    workflow = WorkflowStore(database, __version__)
+    client = TestClient(create_app(SQLiteStore(database), workflow, FailingNotifier()))
+    response = client.post("/api/incidents", json={"scenario_id": "auth-clock-skew"})
+    assert response.status_code == 202
+    assert workflow.get_run_for_incident(response.json()["id"]).status == "queued"
+
+
 def test_evaluation_endpoint(tmp_path) -> None:
     client, _ = make_runtime(tmp_path)
     response = client.post("/api/evaluations/run")

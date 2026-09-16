@@ -21,7 +21,7 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 COPY --from=frontend-build /build/frontend/dist ./frontend/dist
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir ".[production]"
 RUN addgroup --system incidentlab && adduser --system --ingroup incidentlab incidentlab \
     && mkdir -p /app/data && chown -R incidentlab:incidentlab /app
 USER incidentlab
